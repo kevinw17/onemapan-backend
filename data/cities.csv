@@ -1,0 +1,515 @@
+id;name;provinceId
+297;Kab. Alor;19
+298;Kab. Flores Timur;19
+299;Kab. Sikka;19
+300;Kab. Ende;19
+301;Kab. Ngada;19
+302;Kab. Manggarai;19
+303;Kab. Sumba Timur;19
+304;Kab. Sumba Barat;19
+305;Kab. Lembata;19
+306;Kab. Rote Ndao;19
+307;Kab. Manggarai Barat;19
+308;Kab. Nagekeo;19
+309;Kab. Sumba Tengah;19
+310;Kab. Sumba Barat Daya;19
+311;Kab. Manggarai Timur;19
+312;Kab. Sabu Raijua;19
+313;Kab. Malaka;19
+314;Kota Kupang;19
+3;Kab. Aceh Timur;1
+116;Kab. Bengkulu Selatan;7
+117;Kab. Rejang Lebong;7
+118;Kab. Bengkulu Utara;7
+119;Kab. Kaur;7
+120;Kab. Seluma;7
+121;Kab. Muko Muko;7
+122;Kab. Lebong;7
+123;Kab. Kepahiang;7
+124;Kab. Bengkulu Tengah;7
+125;Kota Bengkulu;7
+126;Kab. Lampung Selatan;8
+127;Kab. Lampung Tengah;8
+128;Kab. Lampung Utara;8
+129;Kab. Lampung Barat;8
+130;Kab. Tulang Bawang;8
+131;Kab. Tanggamus;8
+132;Kab. Lampung Timur;8
+133;Kab. Way Kanan;8
+134;Kab. Pesawaran;8
+135;Kab. Pringsewu;8
+136;Kab. Mesuji;8
+137;Kab. Tulang Bawang Barat;8
+138;Kab. Pesisir Barat;8
+139;Kota Bandar Lampung;8
+140;Kota Metro;8
+141;Kab. Bangka;9
+142;Kab. Belitung;9
+143;Kab. Bangka Selatan;9
+144;Kab. Bangka Tengah;9
+223;Kab. Kulon Progo;14
+224;Kab. Bantul;14
+225;Kaab. Gunungkidul;14
+226;Kab. Sleman;14
+227;Kota Yogyakarta;14
+228;Kab. Pacitan;15
+229;Kab. Ponorogo;15
+230;Kab. Trenggalek;15
+231;Kab. Tulungagung;15
+232;Kab. Blitar;15
+233;Kab. Kediri;15
+234;Kab. Malang;15
+235;Kab. Lumajang;15
+236;Kab. Jember;15
+237;Kab. Banyuwangi;15
+238;Kab. Bondowoso;15
+239;Kab. Situbondo;15
+240;Kab. Probolinggo;15
+241;Kab. Pasuruan;15
+242;Kab. Sidoarjo;15
+243;Kab. Mojokerto;15
+244;Kab. Jombang;15
+245;Kab. Nganjuk;15
+246;Kab. Madiun;15
+247;Kab. Magetan;15
+248;Kab. Ngawi;15
+249;Kab. Bojonegoro;15
+250;Kab. Tuban;15
+251;Kab. Lamongan;15
+252;Kab. Gresik;15
+253;Kab. Bangkalan;15
+254;Kab. Sampang;15
+255;Kab. Pamekasan;15
+256;Kab. Sumenep;15
+257;Kota Kediri;15
+258;Kota Blitar;15
+259;Kota Malang;15
+260;Kota Probolinggo;15
+261;Kota Pasuruan;15
+262;Kota Mojokerto;15
+263;Kota Madiun;15
+264;Kota Surabaya;15
+265;Kota Batu;15
+266;Kab. Pandeglang;16
+267;Kab. Lebak;16
+268;Kab. Tangerang;16
+269;Kab. Serang;16
+270;Kota Tangerang;16
+271;Kota Cilegon;16
+272;Kota Serang;16
+273;Kota Tangerang Selatan;16
+274;Kab. Jembrana;17
+275;Kab. Tabanan;17
+276;Kab. Badung;17
+277;Kab. Gianyar;17
+278;Kab. Klungkung;17
+279;Kab. Bangli;17
+280;Kab. Karangasem;17
+281;Kab. Buleleng;17
+282;Kota Denpasar;17
+283;Kab. Lombok Barat;18
+284;Kab. Lombok Tengah;18
+285;Kab. Lombok Timur;18
+286;Kab. Sumbawa;18
+287;Kab. Dompu;18
+288;Kab. Bima;18
+289;Kab. Sumbawa Barat;18
+290;Kab. Lombok Utara;18
+291;Kota Mataram;18
+292;Kota Bima;18
+293;Kab. Kupang;19
+294;Kab. Timor Tengah Selatan;19
+295;Kab. Timor Tengah Utara;19
+296;Kab. Belu;19
+345;Kab. Banjar;22
+346;Kab. Barito Kuala;22
+347;Kab. Tapin;22
+348;Kab. Hulu Sungai Selatan;22
+349;Kab. Hulu Sungai Tengah;22
+350;Kab. Hulu Sungai Utara;22
+351;Kab. Tabalong;22
+352;Kab. Tanah Bumbu;22
+353;Kab. Balangan;22
+354;Kota Banjarmasin;22
+355;Kota Banjarbaru;22
+356;Kab. Paser;23
+357;Kab. Kutai Kartanegara;23
+358;Kab. Berau;23
+359;Kab. Kutai Barat;23
+360;Kab. Kutai Timur;23
+361;Kab. Penajam Paser Utara;23
+362;Kab. Mahakam Ulu;23
+363;Kota Balikpapan;23
+364;Kota Samarinda;23
+365;Kota Bontang;23
+366;Kab. Bulungan;24
+367;Kab. Malinau;24
+368;Kab. Nunukan;24
+369;Kab. Tana Tidung;24
+370;Kota Tarakan;24
+371;Kab. Bolaang Mongondow;25
+372;Kab. Minahasa;25
+373;Kab. Kepulauan Sangihe;25
+374;Kab. Kepulauan Talaud;25
+375;Kab. Minahasa Selatan;25
+376;Kab. Minahasa Utara;25
+377;Kab. Minahasa Tenggara;25
+378;Kab. Bolaang Mongondow Utara;25
+379;Kab. Kep. Siau Tagulandang Biaro;25
+380;Kab. Bolaang Mongondow Timur;25
+381;Kab. Bolaang Mongondow Selatan;25
+382;Kota Manado;25
+383;Kota Bitung;25
+384;Kota Tomohon;25
+385;Kota Kotamobagu;25
+386;Kab. Banggai;26
+387;Kab. Poso;26
+388;Kab. Donggala;26
+389;Kab. Toli Toli;26
+390;Kab. Buol;26
+391;Kab. Morowali;26
+392;Kab. Banggai Kepulauan;26
+393;Kab. Parigi Moutong;26
+394;Kab. Tojo Una Una;26
+395;Kab. Sigi;26
+396;Kab. Banggai Laut;26
+397;Kab. Morowali Utara;26
+398;Kota Palu;26
+399;Kab. Kepulauan Selayar;27
+400;Kab. Bulukumba;27
+401;Kab. Bantaeng;27
+402;Kab. Jeneponto;27
+403;Kab. Takalar;27
+404;Kab. Gowa;27
+405;Kab. Sinjai;27
+406;Kab. Bone;27
+407;Kab. Maros;27
+408;Kab. Pangkajene Kepulauan;27
+409;Kab. Barru;27
+410;Kab. Soppeng;27
+411;Kab. Wajo;27
+412;Kab. Sidenreng Rappang;27
+413;Kab. Pinrang;27
+414;Kab. Enrekang;27
+415;Kab. Luwu;27
+416;Kab. Tana Toraja;27
+417;Kab. Luwu Utara;27
+418;Kab. Luwu Timur;27
+419;Kab. Toraja Utara;27
+420;Kota Makassar;27
+421;Kota Pare Pare;27
+422;Kota Palopo;27
+423;Kab. Kolaka;28
+424;Kab. Konawe;28
+425;Kab. Muna;28
+426;Kab. Buton;28
+427;Kab. Konawe Selatan;28
+428;Kab. Bombana;28
+429;Kab. Wakatobi;28
+430;Kab. Kolaka Utara;28
+431;Kab. Konawe Utara;28
+432;Kab. Buton Utara;28
+433;Kab. Kolaka Timur;28
+434;Kab. Konawe Kepulauan;28
+435;Kab. Muna Barat;28
+436;Kab. Buton Tengah;28
+437;Kab. Buton Selatan;28
+438;Kota Kendari;28
+439;Kota Bau Bau;28
+440;Kab. Gorontalo;29
+441;Kab. Boalemo;29
+442;Kab. Bone Bolango;29
+315;Kab. Sambas;20
+316;Kab. Mempawah;20
+317;Kab. Sanggau;20
+318;Kab. Ketapang;20
+319;Kab. Sintang;20
+320;Kab. Kapuas Hulu;20
+321;Kab. Bengkayang;20
+322;Kab. Landak;20
+323;Kab. Sekadau;20
+324;Kab. Melawi;20
+325;Kab. Kayong Utara;20
+326;Kab. Kubu Raya;20
+327;Kota Pontianak;20
+328;Kota Singkawang;20
+329;Kab. Kotawaringin Barat;21
+330;Kab. Kotawaringin Timur;21
+331;Kab. Kapuas;21
+332;Kab. Barito Selatan;21
+333;Kab. Barito Utara;21
+334;Kab. Katingan;21
+335;Kab. Seruyan;21
+336;Kab. Sukamara;21
+337;Kab. Lamandau;21
+338;Kab. Gunung Mas;21
+339;Kab. Pulang Pisau;21
+340;Kab. Murung Raya;21
+341;Kab. Barito Timur;21
+342;Kota Palangkaraya;21
+343;Kab. Tanah Laut;22
+344;Kab. Kotabaru;22
+443;Kab. Pohuwato;29
+444;Kab. Gorontalo Utara;29
+445;Kota Gorontalo;29
+446;Kab. Pasangkayu;30
+447;Kab. Mamuju;30
+448;Kab. Mamasa;30
+449;Kab. Polewali Mandar;30
+450;Kab. Majene;30
+451;Kab. Mamuju Tengah;30
+452;Kab. MalukuTengah;31
+453;Kab. Maluku Tenggara;31
+454;Kab. Kepulauan Tanimbar;31
+455;Kab. Buru;31
+456;Kab. Seram Bagian Timur;31
+457;Kab. Seram Bagian Barat;31
+458;Kab. Kepulauan Aru;31
+459;Kab. Maluku Barat Daya;31
+460;Kab. Buru Selatan;31
+461;Kota Ambon;31
+462;Kota Tual;31
+463;Kab. Halmahera Barat;32
+464;Kab. Halmahera Tengah;32
+465;Kab. Halmahera Utara;32
+466;Kab. Halmahera Selatan;32
+467;Kab. Kepulauan Sula;32
+468;Kab. Halmahera Timur;32
+469;Kab. Pulau Morotai;32
+470;Kab. Pulau Taliabu;32
+471;Kota Ternate;32
+472;Kota Tidore Kepulauan;32
+473;Kab. Jayapura;33
+474;Kab. Kepulauan Yapen;33
+475;Kab. Biak Numfor;33
+476;Kab. Sarmi;33
+477;Kab. Keerom;33
+478;Kab. Waropen;33
+479;Kab. Supiori;33
+480;Kab. Mamberamo Raya;33
+481;Kota Jayapura;33
+482;Kab. Sorong;38
+483;Kab. Manokwari;34
+484;Kab. Fak Fak;34
+485;Kab. Sorong Selatan;38
+486;Kab. Raja Ampat;38
+487;Kab. Teluk Bintuni;34
+488;Kab. Teluk Wondama;34
+489;Kab. Kaimana;34
+490;Kab. Tambrauw;38
+491;Kab. Maybrat;38
+492;Kab. Manokwari Selatan;34
+493;Kab. Pegunungan Arfak;34
+494;Kota Sorong;38
+495;Kab. Merauke;35
+496;Kab. Boven Digoel;35
+497;Kab. Mappi;35
+498;Kab. Asmat;35
+499;Kab. Nabire;36
+500;Kab. Puncak Jaya;36
+501;Kab. Paniai;36
+502;Kab. Mimika;36
+503;Kab. Puncak;36
+504;Kab. Dogiyai;36
+505;Kab. Intan Jaya;36
+506;Kab. Deiyai;36
+507;Kab. Jayawijaya;37
+508;Kab. Pegunungan Bintang;37
+509;Kab. Yahukimo;37
+510;Kab. Tolikara;37
+511;Kab. Mamberamo Tengah;37
+512;Kab. Yalimo;37
+513;Kab. Lanny Jaya;37
+514;Kab. Nduga;37
+1;Kab. Aceh Selatan;1
+2;Kab. Aceh Tenggara;1
+4;Kab. Aceh Tengah;1
+5;Kab. Aceh Barat;1
+6;Kab. Aceh Besar;1
+7;Kab. Pidie;1
+8;Kab. Aceh Utara;1
+9;Kab. Simeulue;1
+10;Kab. Aceh Singkil;1
+11;Kab. Bireuen;1
+12;Kab. Aceh Barat Daya;1
+13;Kab. Gayo Lues;1
+14;Kab. Aceh Jaya;1
+15;Kab. Nagan Raya;1
+16;Kab. Aceh Tamiang;1
+17;Kab. Bener Meriah;1
+18;Kab. Pidie Jaya;1
+19;Kota Banda Aceh;1
+20;Kota Sabang;1
+21;Kota Lhokseumawe;1
+22;Kota Langsa;1
+23;Kota Subulussalam;1
+24;Kab. Tapanuli Tengah;2
+25;Kab. Tapanuli Utara;2
+26;Kab. Tapanuli Selatan;2
+27;Kab. Nias;2
+28;Kab. Langkat;2
+29;Kab. Karo;2
+30;Kab. Deli Serdang;2
+31;Kab. Simalungun;2
+32;Kab. Asahan;2
+33;Kab. Labuhanbatu;2
+34;Kab. Dairi;2
+35;Kab. Toba;2
+36;Kab. Mandailing Natal;2
+37;Kab. Nias Selatan;2
+38;Kab. Pakpak Bharat;2
+39;Kab. Humbang Hasundutan;2
+40;Kab. Samosir;2
+41;Kab. Serdang Bedagai;2
+42;Kab. Batu Bara;2
+43;Kab. Padang Lawas Utara;2
+44;Kab. Padang Lawas;2
+45;Kab. Labuhanbatu Selatan;2
+46;Kab. Labuhanbatu Utara;2
+47;Kab. Nias Utara;2
+48;Kab. Nias Barat;2
+49;Kota Medan;2
+50;Kota Pematangsiantar;2
+51;Kota Sibolga;2
+52;Kota Tanjung Balai;2
+53;Kota Binjai;2
+54;Kota Tebing Tinggi;2
+55;Kota Padangsidimpuan;2
+56;Kota Gunungsitoli;2
+57;Kab. Pesisir Selatan;3
+58;Kab. Solok;3
+59;Kab. Sijunjung;3
+60;Kab. Tanah Datar;3
+61;Kab. Padang Pariaman;3
+62;Kab. Agam;3
+63;Kab. Lima Puluh Kota;3
+64;Kab. Pasaman;3
+65;Kab. Kepulauan Mentawai;3
+66;Kab. Dharmasraya;3
+67;Kab. Solok Selatan;3
+68;Kab. Pasaman Barat;3
+69;Kota Padang;3
+70;Kota Solok;3
+71;Kota Sawahlunto;3
+72;Kota Padang Panjang;3
+73;Kota Bukittinggi;3
+74;Kota Payakumbuh;3
+75;Kota Pariaman;3
+76;Kab. Kampar;4
+77;Kab. Indragiri Hulu;4
+78;Kab. Bengkalis;4
+79;Kab. Indragiri Hilir;4
+80;Kab. Pelalawan;4
+81;Kab. Rokan Hulu;4
+82;Kab. Rokan Hilir;4
+83;Kab. Siak;4
+84;Kab. Kuantan Singingi;4
+85;Kab. Kepulauan Meranti;4
+86;Kota Pekanbaru;4
+87;Kota Dumai;4
+88;Kab. Kerinci;5
+89;Kab. Merangin;5
+90;Kab. Sarolangun;5
+91;Kab. Batanghari;5
+92;Kab. Muaro Jambi;5
+93;Kab. Tanjung Jabung Barat;5
+94;Kab. Tanjung Jabung Timur;5
+95;Kab. Bungo;5
+96;Kab. Tebo;5
+97;Kota Jambi;5
+98;Kota Sungai Penuh;5
+99;Kab. Ogan Komering Ulu;6
+100;Kab. Ogan Komering Ilir;6
+101;Kab. Muara Enim;6
+102;Kab. Lahat;6
+103;Kab. Musi Rawas;6
+104;Kab. Musi Banyuasin;6
+105;Kab. Banyuasin;6
+106;Kab. Ogan Komering Ulu Timur;6
+107;Kab. Ogan Komering Ulu Selatan;6
+108;Kab. Ogan Ilir;6
+109;Kab. Empat Lawang;6
+110;Kab. Penukal Abab Lematang Ilir;6
+111;Kab. Musi Rawas Utara;6
+112;Kota Palembang;6
+113;Kota Pagar Alam;6
+114;Kota Lubuk Linggau;6
+115;Kota Prabumulih;6
+145;Kab. Bangka Barat;9
+146;Kab. Belitung Timur;9
+147;Kota Pangkal Pinang;9
+148;Kab. Bintan;10
+149;Kab. Karimun;10
+150;Kab. Natuna;10
+151;Kab. Lingga;10
+152;Kab. Kepulauan Anambas;10
+153;Kota Batam;10
+154;Kota Tanjung Pinang;10
+155;Kab. Adm. Kep. Seribu;11
+156;Kota Adm. Jakarta Pusat;11
+157;Kota Adm. Jakarta Utara;11
+158;Kota Adm. Jakarta Barat;11
+159;Kota Adm. Jakarta Selatan;11
+160;Kota Adm. Jakarta Timur;11
+161;Kab. Bogor;12
+162;Kab. Sukabumi;12
+163;Kab. Cianjur;12
+164;Kab. Bandung;12
+165;Kab. Garut;12
+166;Kab. Tasikmalaya;12
+167;Kab. Ciamis;12
+168;Kab. Kuningan;12
+169;Kab. Cirebon;12
+170;Kab. Majalengka;12
+171;Kab. Sumedang;12
+172;Kab. Indramayu;12
+173;Kab. Subang;12
+174;Kab. Purwakarta;12
+175;Kab. Karawang;12
+176;Kab. Bekasi;12
+177;Kab. Bandung Barat;12
+178;Kab. Pangandaran;12
+179;Kota Bogor;12
+180;Kota Sukabumi;12
+181;Kota Bandung;12
+182;Kota Cirebon;12
+183;Kota Bekasi;12
+184;Kota Depok;12
+185;Kota Cimahi;12
+186;Kota Tasikmalaya;12
+187;Kota Banjar;12
+188;Kab. Cilacap;13
+189;Kab. Banyumas;13
+190;Kab. Purbalingga;13
+191;Kab. Banjarnegara;13
+192;Kab. Kebumen;13
+193;Kab. Purworejo;13
+194;Kab. Wonosobo;13
+195;Kab. Magelang;13
+196;Kab. Boyolali;13
+197;Kab. Klaten;13
+198;Kab. Sukoharjo;13
+199;Kab. Wonogiri;13
+200;Kab. Karanganyar;13
+201;Kab. Sragen;13
+202;Kab. Grobogan;13
+203;Kab. Blora;13
+204;Kab. Rembang;13
+205;Kab. Pati;13
+206;Kab. Kudus;13
+207;Kab. Jepara;13
+208;Kab. Demak;13
+209;Kab. Semarang;13
+210;Kab. Temanggung;13
+211;Kab. Kendal;13
+212;Kab. Batang;13
+213;Kab. Pekalongan;13
+214;Kab. Pemalang;13
+215;Kab. Tegal;13
+216;Kab. Brebes;13
+217;Kota Magelang;13
+218;Kota Surakarta;13
+219;Kota Salatiga;13
+220;Kota Semarang;13
+221;Kota Pekalongan;13
+222;Kota Tegal;13

@@ -33,6 +33,7 @@ model User {
   education_major      String?         @db.VarChar(100)
   job_name             String?         @db.VarChar(100)
   biodata              Bytes?
+  spiritualUser        SpiritualUser?
   domicile_location_id Int
   id_card_location_id  Int
   domicile_location    Location        @relation("domicile", fields: [domicile_location_id], references: [location_id])
@@ -43,56 +44,48 @@ model User {
 }
 
 model QiuDao {
-  qiu_dao_id                   Int       @id @default(autoincrement())
-  User                         User?
-  qiu_dao_name                 String?   @db.VarChar(250)
-  qiu_dao_mandarin_name        String?   @db.VarChar(250)
-  qiu_dao_location_id          Int
-  qiu_dao_location             Location  @relation(fields: [qiu_dao_location_id], references: [location_id])
-  dian_chuan_shi_qd_id         Int?
-  dian_chuan_shi_name          String?   @db.VarChar(250)
-  dian_chuan_shi_mandarin_name String?   @db.VarChar(4)
-  dian_chuan_shi_reference     QiuDao?   @relation("DianChuanShiReference", fields: [dian_chuan_shi_qd_id], references: [qiu_dao_id])
-  dian_chuan_shi_dependents    QiuDao[]  @relation("DianChuanShiReference")
-  yin_shi_qd_id                Int?
-  yin_shi_qd_name              String?   @db.VarChar(250)
-  yin_shi_qd_mandarin_name     String?   @db.VarChar(4)
-  yin_shi_reference            QiuDao?   @relation("YinShiReference", fields: [yin_shi_qd_id], references: [qiu_dao_id])
-  yin_shi_dependents           QiuDao[]  @relation("YinShiReference")
-  bao_shi_qd_id                Int?
-  bao_shi_qd_name              String?   @db.VarChar(250)
-  bao_shi_qd_mandarin_name     String?   @db.VarChar(4)
-  bao_shi_reference            QiuDao?   @relation("BaoShiReference", fields: [bao_shi_qd_id], references: [qiu_dao_id])
-  bao_shi_dependents           QiuDao[]  @relation("BaoShiReference")
-  lunar_sui_ci_year            String    @db.VarChar(3)
-  lunar_month                  String    @db.VarChar(4)
-  lunar_day                    String    @db.VarChar(4)
-  lunar_shi_chen_time          String    @db.VarChar(2)
-  qiu_dao_card_s3_url          String?   @db.VarChar(250)
-  created_at                   DateTime? @default(now())
-  updated_at                   DateTime? @updatedAt
+  qiu_dao_id               Int           @id @default(autoincrement())
+  User                     User?
+  qiu_dao_name             String?       @db.VarChar(250)
+  qiu_dao_mandarin_name    String?       @db.VarChar(250)
+  qiu_dao_location_id      Int
+  qiu_dao_location         Fotang        @relation(fields: [qiu_dao_location_id], references: [fotang_id])
+  dian_chuan_shi_id        Int?
+  dian_chuan_shi           DianChuanShi? @relation("DianChuanShiRelation", fields: [dian_chuan_shi_id], references: [id])
+  yin_shi_qd_id            Int?
+  yin_shi_qd_name          String?       @db.VarChar(250)
+  yin_shi_qd_mandarin_name String?       @db.VarChar(4)
+  yin_shi_reference        QiuDao?       @relation("YinShiReference", fields: [yin_shi_qd_id], references: [qiu_dao_id])
+  yin_shi_dependents       QiuDao[]      @relation("YinShiReference")
+  bao_shi_qd_id            Int?
+  bao_shi_qd_name          String?       @db.VarChar(250)
+  bao_shi_qd_mandarin_name String?       @db.VarChar(4)
+  bao_shi_reference        QiuDao?       @relation("BaoShiReference", fields: [bao_shi_qd_id], references: [qiu_dao_id])
+  bao_shi_dependents       QiuDao[]      @relation("BaoShiReference")
+  lunar_sui_ci_year        String        @db.VarChar(3)
+  lunar_month              String        @db.VarChar(4)
+  lunar_day                String        @db.VarChar(4)
+  lunar_shi_chen_time      String        @db.VarChar(2)
+  qiu_dao_card_s3_url      String?       @db.VarChar(250)
+  created_at               DateTime?     @default(now())
+  updated_at               DateTime?     @updatedAt
 }
 
 model Location {
-  location_id            Int          @id @default(autoincrement())
-  location_type          LocationType
-  location_name          String       @db.VarChar(250)
-  location_mandarin_name String?      @db.VarChar(20)
+  location_id            Int       @id @default(autoincrement())
+  location_name          String    @db.VarChar(250)
+  location_mandarin_name String?   @db.VarChar(20)
   latitude               Int?
   longitude              Int?
-  area                   Korwil
-  country_iso            String       @default("IDN") @db.Char(3)
-  province               String       @db.VarChar(250)
-  city                   String       @db.VarChar(250)
-  district               String?      @db.VarChar(250)
-  locality               String?      @db.VarChar(250)
-  street                 String?      @db.VarChar(250)
-  postal_code            String?      @db.VarChar(10)
-  users_domicile         User[]       @relation("domicile")
-  users_id_card_location User[]       @relation("id_card_location")
-  QiuDao                 QiuDao[]
-  created_at             DateTime?    @default(now())
-  updated_at             DateTime?    @updatedAt
+  country_iso            String    @default("IDN") @db.Char(3)
+  locality               Locality  @relation(fields: [localityId], references: [id])
+  localityId             Int
+  street                 String?   @db.VarChar(250)
+  postal_code            String?   @db.VarChar(10)
+  users_domicile         User[]    @relation("domicile")
+  users_id_card_location User[]    @relation("id_card_location")
+  created_at             DateTime? @default(now())
+  updated_at             DateTime? @updatedAt
 }
 
 model UserCredential {
@@ -104,6 +97,89 @@ model UserCredential {
   last_logged_in  DateTime  @default(now())
   created_at      DateTime? @default(now())
   updated_at      DateTime? @updatedAt
+}
+
+model Fotang {
+  fotang_id              Int       @id @default(autoincrement())
+  location_name          String    @db.VarChar(250)
+  location_mandarin_name String?   @db.VarChar(20)
+  latitude               Int?
+  longitude              Int?
+  area                   Korwil
+  country_iso            String    @default("IDN") @db.Char(3)
+  locality               Locality  @relation(fields: [localityId], references: [id])
+  localityId             Int
+  street                 String?   @db.VarChar(250)
+  postal_code            String?   @db.VarChar(10)
+  QiuDao                 QiuDao[]
+  created_at             DateTime? @default(now())
+  updated_at             DateTime? @updatedAt
+}
+
+model DianChuanShi {
+  id            Int      @id
+  name          String?  @db.VarChar(250)
+  mandarin_name String?  @db.VarChar(4)
+  area          Korwil
+  qiuDaos       QiuDao[] @relation("DianChuanShiRelation")
+}
+
+model SpiritualUser {
+  id               Int             @id @default(autoincrement())
+  user             User            @relation(fields: [userId], references: [user_info_id])
+  userId           Int             @unique
+  spiritual_status SpiritualStatus
+  role_start       DateTime?
+  role_end         DateTime?
+  created_at       DateTime        @default(now())
+  updated_at       DateTime        @updatedAt
+}
+
+enum SpiritualStatus {
+  QianRen
+  DianChuanShi
+  TanZhu
+  FoYuan
+  BanShiYuan
+  QianXian
+  DaoQin
+}
+
+model Province {
+  id     Int    @id @default(autoincrement())
+  name   String @unique
+  cities City[]
+}
+
+model City {
+  id         Int        @id @default(autoincrement())
+  name       String
+  province   Province   @relation(fields: [provinceId], references: [id])
+  provinceId Int
+  districts  District[]
+
+  @@unique([name, provinceId])
+}
+
+model District {
+  id         Int        @id @default(autoincrement())
+  name       String
+  city       City       @relation(fields: [cityId], references: [id])
+  cityId     Int
+  localities Locality[]
+
+  @@unique([name, cityId])
+}
+
+model Locality {
+  id         Int        @id @default(autoincrement())
+  name       String
+  district   District   @relation(fields: [districtId], references: [id])
+  districtId Int
+  locations  Location[]
+  fotangs    Fotang[]
+
+  @@unique([name, districtId])
 }
 
 model Event {
@@ -148,11 +224,6 @@ enum MaritalStatus {
   Not_Married
 }
 
-enum LocationType {
-  Home
-  Temple
-}
-
 enum Korwil {
   Korwil_1
   Korwil_2
@@ -160,7 +231,6 @@ enum Korwil {
   Korwil_4
   Korwil_5
   Korwil_6
-  Home
 }
 
 enum EventType {
