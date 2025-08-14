@@ -11,6 +11,7 @@ import exportController from "./export/export.controller";
 import importController from "./import/import.controller";
 import dianchuanshiController from "./dianchuanshi/dianchuanshi.controller";
 import fotangController from "./fotang/fotang.controller";
+import eventController from "./event/event.controller";
 import qs from "qs";
 
 dotenv.config();
@@ -38,6 +39,7 @@ app.use("/export", exportController);
 app.use("/import", importController);
 app.use("/dianchuanshi", dianchuanshiController);
 app.use("/fotang", fotangController);
+app.use("/event", eventController);
 
 // Listener
 app.listen(PORT, () => {

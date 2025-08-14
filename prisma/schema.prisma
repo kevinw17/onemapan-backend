@@ -187,6 +187,7 @@ model Event {
   event_type            EventType
   event_name            String       @db.VarChar(200)
   event_mandarin_name   String?      @db.VarChar(200)
+  location_name         String       @db.VarChar(200)
   lunar_sui_ci_year     String       @db.VarChar(3)
   lunar_month           String       @db.VarChar(4)
   lunar_day             String       @db.VarChar(4)
@@ -237,4 +238,7 @@ enum EventType {
   Anniversary
   Hari_Besar
   Peresmian
+  Regular
+  AdHoc
+  Seasonal
 }
