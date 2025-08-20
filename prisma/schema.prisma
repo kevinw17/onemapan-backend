@@ -121,6 +121,7 @@ model DianChuanShi {
   name          String?  @db.VarChar(250)
   mandarin_name String?  @db.VarChar(4)
   area          Korwil
+  is_fuwuyuan   Boolean?
   qiuDaos       QiuDao[] @relation("DianChuanShiRelation")
 }
 
@@ -131,6 +132,7 @@ model SpiritualUser {
   spiritual_status SpiritualStatus
   role_start       DateTime?
   role_end         DateTime?
+  is_fuwuyuan      Boolean?
   created_at       DateTime        @default(now())
   updated_at       DateTime        @updatedAt
 }
