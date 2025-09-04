@@ -1,5 +1,5 @@
 import prisma from "../../db";
-import { Prisma, SpiritualStatus, User, UserCredential } from "@prisma/client";
+import { BloodType, Gender, Prisma, SpiritualStatus, User, UserCredential } from "@prisma/client";
 
 export const findCredential = async (
   user_credential: number
@@ -192,15 +192,17 @@ export const deleteUser = async (id: number): Promise<User> => {
   });
 };
 
-
 interface PaginatedUserOptions {
   skip: number;
   limit: number;
   search: string;
   searchField: string;
-  spiritualStatus?: string;
+  spiritualStatus?: string | string[];
   job_name?: string | string[];
   last_education_level?: string | string[];
+  is_qing_kou?: string | string[];
+  gender?: string | string[];
+  blood_type?: string | string[];
 }
 
 function buildLocationFilter(
@@ -276,7 +278,11 @@ export const getUsersPaginated = async ({
   spiritualStatus,
   job_name,
   last_education_level,
+  is_qing_kou,
+  gender,
+  blood_type,
 }: PaginatedUserOptions): Promise<{ data: User[]; total: number }> => {
+  console.log("Received Params:", { skip, limit, search, searchField, spiritualStatus, job_name, last_education_level, is_qing_kou, gender, blood_type });
   const nestedFields: Record<string, Prisma.UserWhereInput> = {
     "domicile_location.locality": buildLocationFilter("domicile_location", "locality", search),
     "id_card_location.locality": buildLocationFilter("id_card_location", "locality", search),
@@ -321,38 +327,56 @@ export const getUsersPaginated = async ({
 
   const combinedFilter: Prisma.UserWhereInput = {};
   if (job_name) {
-      if (Array.isArray(job_name) && job_name.length > 0) {
-          combinedFilter.job_name = { in: job_name.map(val => val as string) };
-      } else if (typeof job_name === "string" && job_name.trim() !== "") {
-          combinedFilter.job_name = { equals: job_name };
-      }
+    if (Array.isArray(job_name) && job_name.length > 0) {
+      combinedFilter.job_name = { in: job_name.map(val => val as string) };
+    } else if (typeof job_name === "string" && job_name.trim() !== "") {
+      combinedFilter.job_name = { equals: job_name };
+    }
   }
   if (last_education_level) {
-      if (Array.isArray(last_education_level) && last_education_level.length > 0) {
-          combinedFilter.last_education_level = { in: last_education_level.map(val => val as string) };
-      } else if (typeof last_education_level === "string" && last_education_level.trim() !== "") {
-          combinedFilter.last_education_level = { equals: last_education_level };
-      }
+    if (Array.isArray(last_education_level) && last_education_level.length > 0) {
+      combinedFilter.last_education_level = { in: last_education_level.map(val => val as string) };
+    } else if (typeof last_education_level === "string" && last_education_level.trim() !== "") {
+      combinedFilter.last_education_level = { equals: last_education_level };
+    }
+  }
+  if (spiritualStatus) {
+    if (Array.isArray(spiritualStatus) && spiritualStatus.length > 0) {
+      combinedFilter.spiritualUser = {
+        spiritual_status: { in: spiritualStatus.map(val => val as SpiritualStatus) },
+      };
+    } else if (typeof spiritualStatus === "string" && spiritualStatus.trim() !== "") {
+      combinedFilter.spiritualUser = {
+        spiritual_status: { equals: spiritualStatus as SpiritualStatus },
+      };
+    }
+  }
+  if (is_qing_kou) {
+    if (Array.isArray(is_qing_kou) && is_qing_kou.length > 0) {
+      // Hanya ambil nilai pertama dan konversi ke boolean
+      combinedFilter.is_qing_kou = { equals: is_qing_kou[0] === "true" };
+    } else if (typeof is_qing_kou === "string" && is_qing_kou.trim() !== "") {
+      combinedFilter.is_qing_kou = { equals: is_qing_kou === "true" };
+    }
+  }
+  if (gender) {
+    if (Array.isArray(gender) && gender.length > 0) {
+      combinedFilter.gender = { in: gender.map(val => val as Gender) };
+    } else if (typeof gender === "string" && gender.trim() !== "") {
+      combinedFilter.gender = { equals: gender as Gender };
+    }
+  }
+  if (blood_type) {
+    if (Array.isArray(blood_type) && blood_type.length > 0) {
+      combinedFilter.blood_type = { in: blood_type.map(val => val as BloodType) };
+    } else if (typeof blood_type === "string" && blood_type.trim() !== "") {
+      combinedFilter.blood_type = { equals: blood_type as BloodType };
+    }
   }
 
   console.log("Combined Filter:", JSON.stringify(combinedFilter, null, 2));
   if (Object.keys(combinedFilter).length > 0) {
-      filters.push(combinedFilter);
-  }
-
-  if (spiritualStatus) {
-    where = {
-      AND: [
-        where,
-        {
-          spiritualUser: {
-            spiritual_status: {
-              equals: spiritualStatus as SpiritualStatus,
-            },
-          },
-        },
-      ],
-    };
+    filters.push(combinedFilter);
   }
 
   where = filters.length > 1 ? { AND: filters } : where;

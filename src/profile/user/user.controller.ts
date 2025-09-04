@@ -30,19 +30,34 @@ router.get("/", async (req: Request, res: Response) => {
     const limit = parseInt(req.query.limit as string) || 10;
     const search = (req.query.search as string) || "";
     const searchField = (req.query.searchField as string) || "full_name";
-    const job_name = req.queryParsed?.job_name as string[] | string | undefined;
-    const last_education_level = req.queryParsed?.last_education_level as string[] | string | undefined;
 
+    // Ambil semua parameter dari req.query atau req.queryParsed
+    const spiritualStatus = req.queryParsed?.spiritualStatus as string[] | string | undefined || req.query.spiritualStatus as string[] | string | undefined;
+    const job_name = req.queryParsed?.job_name as string[] | string | undefined || req.query.job_name as string[] | string | undefined;
+    const last_education_level = req.queryParsed?.last_education_level as string[] | string | undefined || req.query.last_education_level as string[] | string | undefined;
+    const is_qing_kou = req.queryParsed?.is_qing_kou as string[] | string | undefined || req.query.is_qing_kou as string[] | string | undefined;
+    const gender = req.queryParsed?.gender as string[] | string | undefined || req.query.gender as string[] | string | undefined;
+    const blood_type = req.queryParsed?.blood_type as string[] | string | undefined || req.query.blood_type as string[] | string | undefined;
+
+    // Konversi ke array jika perlu
+    const spiritualStatusArray = Array.isArray(spiritualStatus) ? spiritualStatus : spiritualStatus ? [spiritualStatus] : undefined;
     const jobNameArray = Array.isArray(job_name) ? job_name : job_name ? [job_name] : undefined;
     const educationLevelArray = Array.isArray(last_education_level) ? last_education_level : last_education_level ? [last_education_level] : undefined;
+    const qingKouArray = Array.isArray(is_qing_kou) ? is_qing_kou : is_qing_kou ? [is_qing_kou] : undefined;
+    const genderArray = Array.isArray(gender) ? gender : gender ? [gender] : undefined;
+    const bloodTypeArray = Array.isArray(blood_type) ? blood_type : blood_type ? [blood_type] : undefined;
 
     const users = await fetchAllUsers({ 
       page, 
       limit, 
       search, 
       searchField, 
+      spiritualStatus: spiritualStatusArray,
       job_name: jobNameArray,
       last_education_level: educationLevelArray,
+      is_qing_kou: qingKouArray,
+      gender: genderArray,
+      blood_type: bloodTypeArray,
     });
 
     res.status(200).json(users);

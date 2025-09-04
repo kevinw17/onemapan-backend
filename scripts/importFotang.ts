@@ -30,7 +30,7 @@ interface FotangData {
     postal_code?: string;
 }
 
-function importCSV(path: string, delimiter: string = ';'): FotangCSVRow[] {
+function importCSV(path: string, delimiter: string = ','): FotangCSVRow[] {
     const fileContent = readFileSync(path, 'utf-8');
     const records = parse(fileContent, {
         delimiter,

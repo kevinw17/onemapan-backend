@@ -144,8 +144,12 @@ interface FetchAllUsersOptions {
   limit?: number;
   search?: string;
   searchField?: string;
+  spiritualStatus?: string | string[];
   job_name?: string | string[];
   last_education_level?: string | string[];
+  is_qing_kou?: string | string[];
+  gender?: string | string[];
+  blood_type?: string | string[];
 }
 
 export const fetchAllUsers = async ({
@@ -153,11 +157,15 @@ export const fetchAllUsers = async ({
   limit = 10,
   search = "",
   searchField = "full_name",
+  spiritualStatus,
   job_name,
   last_education_level,
+  is_qing_kou,
+  gender,
+  blood_type,
 }: FetchAllUsersOptions) => {
   const skip = (page - 1) * limit;
-  return await getUsersPaginated({ skip, limit, search, searchField, job_name, last_education_level });
+  return await getUsersPaginated({ skip, limit, search, searchField, spiritualStatus, job_name, last_education_level, is_qing_kou, gender, blood_type });
 };
 
 export const getUserById = async (id: number): Promise<User | null> => {

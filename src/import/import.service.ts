@@ -1,11 +1,12 @@
 import ExcelJS from "exceljs";
-import { getLocalityId, getOrCreateLocation } from "../profile/location/location.repository";
+import { getLocalityId, getOrCreateLocation } from "../profile/location/location.repository"; // Tambahkan getOrCreateLocation
 import { createQiuDao } from "../profile/qiudao/qiudao.repository";
 import { createUser } from "../profile/user/user.repository";
 import prisma from "../db";
 import { CellValue } from "exceljs";
 import { BloodType, Gender, Korwil, MaritalStatus, SpiritualStatus } from "@prisma/client";
-import { createFotangFromImport } from "../fotang/fotang.repository";
+import { Fotang } from "@prisma/client";
+import { Buffer } from "buffer"; // Impor Buffer dari modul buffer
 
 function safeString(val: CellValue | undefined | null): string | undefined {
     return val ? String(val).trim() : undefined;
@@ -52,9 +53,53 @@ export function parseKorwil(value?: string): Korwil {
     throw new Error(`Korwil tidak valid: '${value}'`);
 }
 
-export const importUmatFromExcel = async (buffer: Buffer) => {
+async function getFotang(data: {
+    location_name: string;
+    localityId: number;
+    postal_code?: string;
+    area: Korwil;
+}): Promise<Fotang | null> {
+    const { location_name, localityId, postal_code, area } = data;
+    console.log(`Mencari Fotang dengan: location_name='${location_name}', localityId=${localityId}, postal_code='${postal_code}', area='${area}'`);
+    const existingFotang = await prisma.fotang.findFirst({
+        where: {
+            location_name: {
+                equals: location_name,
+                mode: "insensitive", // Mengabaikan kasus huruf
+            },
+            localityId: localityId,
+            postal_code: postal_code, // Biarkan nullable
+            area: area,
+        },
+    });
+
+    if (!existingFotang) {
+        console.log(`Tidak ada Fotang yang cocok ditemukan dengan kriteria di atas.`);
+        // Coba cari berdasarkan location_name saja sebagai fallback (opsional)
+        const fallbackFotang = await prisma.fotang.findFirst({
+            where: {
+                location_name: {
+                    equals: location_name,
+                    mode: "insensitive",
+                },
+            },
+        });
+        if (fallbackFotang) {
+            console.log(`Fotang ditemukan dengan fallback (location_name saja): localityId=${fallbackFotang.localityId}, postal_code=${fallbackFotang.postal_code}, area=${fallbackFotang.area}`);
+            return fallbackFotang;
+        }
+    }
+    return existingFotang;
+}
+
+export const importUmatFromExcel = async (buffer: Buffer | ArrayBuffer) => {
     const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.load(buffer);
+    // Konversi buffer ke Buffer Node.js dengan casting eksplisit melalui Uint8Array
+    const normalizedBuffer = Buffer.isBuffer(buffer)
+        ? buffer
+        : Buffer.from(new Uint8Array(buffer as ArrayBuffer));
+    // @ts-ignore
+    await workbook.xlsx.load(normalizedBuffer);
 
     const umatSheet = workbook.getWorksheet("Umat");
     if (!umatSheet) throw new Error("Sheet 'Umat' tidak ditemukan");
@@ -62,7 +107,7 @@ export const importUmatFromExcel = async (buffer: Buffer) => {
     const headerMap: Record<string, number> = {};
     umatSheet.getRow(1).eachCell((cell, colNumber) => {
         if (typeof cell.value === "string") {
-        headerMap[cell.value] = colNumber;
+            headerMap[cell.value] = colNumber;
         }
     });
 
@@ -70,31 +115,36 @@ export const importUmatFromExcel = async (buffer: Buffer) => {
         const row = umatSheet.getRow(i);
 
         const domicileLocation = await getOrCreateLocation({
-            location_name: safeString(row.getCell(headerMap["Nama Lokasi Domisili"]).value) ?? "-",
-            street: safeString(row.getCell(headerMap["Alamat Domisili"]).value),
+            location_name: safeString(row.getCell(headerMap["Nama Lokasi Domisili"])?.value) ?? "-",
+            street: safeString(row.getCell(headerMap["Alamat Domisili"])?.value),
             localityId: await getLocalityId({
-                name: safeString(row.getCell(headerMap["Desa / Kelurahan Domisili"]).value),
-                districtName: safeString(row.getCell(headerMap["Kecamatan Domisili"]).value),
-                cityName: safeString(row.getCell(headerMap["Kabupaten / Kota Domisili"]).value),
-                provinceName: safeString(row.getCell(headerMap["Provinsi Domisili"]).value),
+                name: safeString(row.getCell(headerMap["Desa / Kelurahan Domisili"])?.value),
+                districtName: safeString(row.getCell(headerMap["Kecamatan Domisili"])?.value),
+                cityName: safeString(row.getCell(headerMap["Kabupaten / Kota Domisili"])?.value),
+                provinceName: safeString(row.getCell(headerMap["Provinsi Domisili"])?.value),
             }),
-            postal_code: safeString(row.getCell(headerMap["Kode Pos Domisili"]).value),
+            postal_code: safeString(row.getCell(headerMap["Kode Pos Domisili"])?.value),
         });
 
         const idCardLocation = await getOrCreateLocation({
-            location_name: safeString(row.getCell(headerMap["Nama Lokasi Sesuai KTP"]).value) ?? "-",
-            street: safeString(row.getCell(headerMap["Alamat Sesuai KTP"]).value),
+            location_name: safeString(row.getCell(headerMap["Nama Lokasi Sesuai KTP"])?.value) ?? "-",
+            street: safeString(row.getCell(headerMap["Alamat Sesuai KTP"])?.value),
             localityId: await getLocalityId({
-                name: safeString(row.getCell(headerMap["Desa / Kelurahan Sesuai KTP"]).value),
-                districtName: safeString(row.getCell(headerMap["Kecamatan Sesuai KTP"]).value),
-                cityName: safeString(row.getCell(headerMap["Kabupaten / Kota Sesuai KTP"]).value),
-                provinceName: safeString(row.getCell(headerMap["Provinsi Sesuai KTP"]).value),
+                name: safeString(row.getCell(headerMap["Desa / Kelurahan Sesuai KTP"])?.value),
+                districtName: safeString(row.getCell(headerMap["Kecamatan Sesuai KTP"])?.value),
+                cityName: safeString(row.getCell(headerMap["Kabupaten / Kota Sesuai KTP"])?.value),
+                provinceName: safeString(row.getCell(headerMap["Provinsi Sesuai KTP"])?.value),
             }),
-            postal_code: safeString(row.getCell(headerMap["Kode Pos Sesuai KTP"]).value),
+            postal_code: safeString(row.getCell(headerMap["Kode Pos Sesuai KTP"])?.value),
         });
 
-        const qdMandarinName = safeString(row.getCell(headerMap["Nama Qiudao (Mandarin)"]).value);
-        const qdName = safeString(row.getCell(headerMap["Nama Qiudao"]).value);
+        if (!domicileLocation || !idCardLocation) {
+            console.log(`Baris ${i} dilewati: Lokasi domisili atau KTP tidak ditemukan.`);
+            continue;
+        }
+
+        const qdMandarinName = safeString(row.getCell(headerMap["Nama Qiudao (Mandarin)"])?.value);
+        const qdName = safeString(row.getCell(headerMap["Nama Qiudao"])?.value);
 
         let qiuDao = null;
 
@@ -127,23 +177,23 @@ export const importUmatFromExcel = async (buffer: Buffer) => {
         }
 
         await createUser({
-            full_name: safeString(row.getCell(headerMap["Nama Lengkap"]).value) ?? "-",
-            mandarin_name: safeString(row.getCell(headerMap["Nama Mandarin"]).value),
-            is_qing_kou: String(row.getCell(headerMap["Status Vegetarian"]).value || "").toLowerCase() === "ya",
-            gender: parseGender(safeString(row.getCell(headerMap["Jenis Kelamin"]).value)),
-            blood_type: parseBloodType(safeString(row.getCell(headerMap["Golongan Darah"]).value)),
-            place_of_birth: safeString(row.getCell(headerMap["Tempat Lahir"]).value) ?? "-",
-            date_of_birth: new Date(String(row.getCell(headerMap["Tanggal Lahir"]).value)),
-            date_of_death: row.getCell(headerMap["Tanggal Wafat"]).value
-                ? new Date(String(row.getCell(headerMap["Tanggal Wafat"]).value))
+            full_name: safeString(row.getCell(headerMap["Nama Lengkap"])?.value) ?? "-",
+            mandarin_name: safeString(row.getCell(headerMap["Nama Mandarin"])?.value),
+            is_qing_kou: String(row.getCell(headerMap["Status Vegetarian"])?.value || "").toLowerCase() === "ya",
+            gender: parseGender(safeString(row.getCell(headerMap["Jenis Kelamin"])?.value)),
+            blood_type: parseBloodType(safeString(row.getCell(headerMap["Golongan Darah"])?.value)),
+            place_of_birth: safeString(row.getCell(headerMap["Tempat Lahir"])?.value) ?? "-",
+            date_of_birth: new Date(String(row.getCell(headerMap["Tanggal Lahir"])?.value)),
+            date_of_death: row.getCell(headerMap["Tanggal Wafat"])?.value
+                ? new Date(String(row.getCell(headerMap["Tanggal Wafat"])?.value))
                 : null,
-            id_card_number: safeString(row.getCell(headerMap["No. KTP"]).value),
-            phone_number: safeString(row.getCell(headerMap["No. HP"]).value) ?? "-",
-            email: safeString(row.getCell(headerMap["Email"]).value),
-            marital_status: parseMaritalStatus(safeString(row.getCell(headerMap["Status Perkawinan"]).value)),
-            last_education_level: safeString(row.getCell(headerMap["Pendidikan Terakhir"]).value),
-            education_major: safeString(row.getCell(headerMap["Jurusan Pendidikan"]).value),
-            job_name: safeString(row.getCell(headerMap["Pekerjaan"]).value),
+            id_card_number: safeString(row.getCell(headerMap["No. KTP"])?.value),
+            phone_number: safeString(row.getCell(headerMap["No. HP"])?.value) ?? "-",
+            email: safeString(row.getCell(headerMap["Email"])?.value),
+            marital_status: parseMaritalStatus(safeString(row.getCell(headerMap["Status Perkawinan"])?.value)),
+            last_education_level: safeString(row.getCell(headerMap["Pendidikan Terakhir"])?.value),
+            education_major: safeString(row.getCell(headerMap["Jurusan Pendidikan"])?.value),
+            job_name: safeString(row.getCell(headerMap["Pekerjaan"])?.value),
             domicile_location: {
                 connect: { location_id: domicileLocation.location_id },
             },
@@ -151,12 +201,12 @@ export const importUmatFromExcel = async (buffer: Buffer) => {
                 connect: { location_id: idCardLocation.location_id },
             },
             qiudao: {
-                connect: { qiu_dao_id: qiuDao.qiu_dao_id }
+                connect: { qiu_dao_id: qiuDao.qiu_dao_id },
             },
             spiritualUser: {
                 create: {
                     spiritual_status: parseSpiritualStatus(
-                        safeString(row.getCell(headerMap["Status Rohani"]).value)
+                        safeString(row.getCell(headerMap["Status Rohani"])?.value)
                     ),
                 },
             },
@@ -166,9 +216,14 @@ export const importUmatFromExcel = async (buffer: Buffer) => {
     return { message: "Import selesai" };
 };
 
-export const importQiudaoFromExcel = async (buffer: Buffer) => {
+export const importQiudaoFromExcel = async (buffer: Buffer | ArrayBuffer) => {
     const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.load(buffer);
+    // Konversi buffer ke Buffer Node.js dengan casting eksplisit melalui Uint8Array
+    const normalizedBuffer = Buffer.isBuffer(buffer)
+        ? buffer
+        : Buffer.from(new Uint8Array(buffer as ArrayBuffer));
+    // @ts-ignore
+    await workbook.xlsx.load(normalizedBuffer);
 
     const sheet = workbook.getWorksheet("Qiudao");
     if (!sheet) throw new Error("Sheet 'Qiudao' tidak ditemukan");
@@ -176,42 +231,54 @@ export const importQiudaoFromExcel = async (buffer: Buffer) => {
     const headerMap: Record<string, number> = {};
     sheet.getRow(1).eachCell((cell, colNumber) => {
         if (typeof cell.value === "string") {
-        headerMap[cell.value] = colNumber;
+            headerMap[cell.value] = colNumber;
         }
     });
+
+    let successCount = 0;
+    let duplicateCount = 0;
+    let errorCount = 0;
 
     for (let i = 2; i <= sheet.rowCount; i++) {
         const row = sheet.getRow(i);
 
-        const qiu_dao_name = safeString(row.getCell(headerMap["Nama Qiudao (Indonesia)"]).value);
-        const qiu_dao_mandarin_name = safeString(row.getCell(headerMap["Nama Qiudao (Mandarin)"]).value);
-        const dian_chuan_shi_name = safeString(row.getCell(headerMap["Nama Indonesia Pandita"]).value);
-        const dian_chuan_shi_mandarin_name = safeString(row.getCell(headerMap["Nama Mandarin Pandita"]).value);
-        const yin_shi_qd_name = safeString(row.getCell(headerMap["Nama Indonesia Guru Pengajak"]).value);
-        const yin_shi_qd_mandarin_name = safeString(row.getCell(headerMap["Nama Mandarin Guru Pengajak"]).value);
-        const bao_shi_qd_name = safeString(row.getCell(headerMap["Nama Indonesia Guru Penanggung"]).value);
-        const bao_shi_qd_mandarin_name = safeString(row.getCell(headerMap["Nama Mandarin Guru Penanggung"]).value);
-        const lunar_sui_ci_year = safeString(row.getCell(headerMap["Tahun Lunar"]).value);
-        const lunar_month = safeString(row.getCell(headerMap["Bulan Lunar"]).value);
-        const lunar_day = safeString(row.getCell(headerMap["Tanggal Lunar"]).value);
-        const lunar_shi_chen_time = safeString(row.getCell(headerMap["Waktu Lunar"]).value);
+        const qiu_dao_name = safeString(row.getCell(headerMap["Nama Qiudao (Indonesia)"])?.value);
+        const qiu_dao_mandarin_name = safeString(row.getCell(headerMap["Nama Qiudao (Mandarin)"])?.value);
+        const dian_chuan_shi_name = safeString(row.getCell(headerMap["Nama Indonesia Pandita"])?.value);
+        const dian_chuan_shi_mandarin_name = safeString(row.getCell(headerMap["Nama Mandarin Pandita"])?.value);
+        const yin_shi_qd_name = safeString(row.getCell(headerMap["Nama Indonesia Guru Pengajak"])?.value);
+        const yin_shi_qd_mandarin_name = safeString(row.getCell(headerMap["Nama Mandarin Guru Pengajak"])?.value);
+        const bao_shi_qd_name = safeString(row.getCell(headerMap["Nama Indonesia Guru Penanggung"])?.value);
+        const bao_shi_qd_mandarin_name = safeString(row.getCell(headerMap["Nama Mandarin Guru Penanggung"])?.value);
+        const lunar_sui_ci_year = safeString(row.getCell(headerMap["Tahun Lunar"])?.value);
+        const lunar_month = safeString(row.getCell(headerMap["Bulan Lunar"])?.value);
+        const lunar_day = safeString(row.getCell(headerMap["Tanggal Lunar"])?.value);
+        const lunar_shi_chen_time = safeString(row.getCell(headerMap["Waktu Lunar"])?.value);
+
         if (!lunar_sui_ci_year || !lunar_month || !lunar_day || !lunar_shi_chen_time) {
-            throw new Error(`[IMPORT QIUDAO] Baris ${i} gagal: Data lunar tidak lengkap`);
+            console.error(`[IMPORT QIUDAO] Baris ${i} gagal: Data lunar tidak lengkap`);
+            errorCount++;
+            continue;
         }
 
-        const location = await createFotangFromImport({
-            location_name: safeString(row.getCell(headerMap["Nama Vihara"]).value) ?? "-",
-            location_mandarin_name: safeString(row.getCell(headerMap["Nama Vihara (Mandarin)"]).value),
-            street: safeString(row.getCell(headerMap["Alamat Vihara"]).value),
+        const locationData = {
+            location_name: safeString(row.getCell(headerMap["Nama Vihara"])?.value) ?? "-",
             localityId: await getLocalityId({
-                name: safeString(row.getCell(headerMap["Desa / Kelurahan"]).value),
-                districtName: safeString(row.getCell(headerMap["Kecamatan"]).value),
-                cityName: safeString(row.getCell(headerMap["Kabupaten / Kota"]).value),
-                provinceName: safeString(row.getCell(headerMap["Provinsi"]).value),
+                name: safeString(row.getCell(headerMap["Desa / Kelurahan"])?.value),
+                districtName: safeString(row.getCell(headerMap["Kecamatan"])?.value),
+                cityName: safeString(row.getCell(headerMap["Kabupaten / Kota"])?.value),
+                provinceName: safeString(row.getCell(headerMap["Provinsi"])?.value),
             }),
-            postal_code: safeString(row.getCell(headerMap["Kode Pos"]).value),
+            postal_code: safeString(row.getCell(headerMap["Kode Pos"])?.value),
             area: parseKorwil(safeString(row.getCell(headerMap["Wilayah"])?.value)) || "Korwil_1",
-        });
+        };
+
+        const location = await getFotang(locationData);
+        if (!location) {
+            console.error(`[IMPORT QIUDAO] Baris ${i} gagal: Fotang tidak ditemukan untuk ${locationData.location_name} (localityId: ${locationData.localityId}, postal_code: ${locationData.postal_code}, area: ${locationData.area})`);
+            errorCount++;
+            continue;
+        }
 
         const existing = await prisma.qiuDao.findFirst({
             where: {
@@ -235,41 +302,54 @@ export const importQiudaoFromExcel = async (buffer: Buffer) => {
 
         if (existing) {
             console.log(`[IMPORT QIUDAO] Duplikat ditemukan: ${qiu_dao_name}, dilewati.`);
+            duplicateCount++;
             continue;
         }
 
         const pandita = await prisma.dianChuanShi.findFirst({
             where: {
                 OR: [
-                { name: dian_chuan_shi_name },
-                { mandarin_name: dian_chuan_shi_mandarin_name },
+                    { name: dian_chuan_shi_name },
+                    { mandarin_name: dian_chuan_shi_mandarin_name },
                 ],
             },
         });
 
         if (!pandita) {
-            throw new Error("Dian Chuan Shi tidak ditemukan di database");
+            console.error(`[IMPORT QIUDAO] Baris ${i} gagal: Dian Chuan Shi tidak ditemukan di database untuk ${dian_chuan_shi_name} atau ${dian_chuan_shi_mandarin_name}`);
+            errorCount++;
+            continue;
         }
 
-        await createQiuDao({
-            qiu_dao_name,
-            qiu_dao_mandarin_name,
-            qiu_dao_location: {
-                connect: { fotang_id: location.fotang_id }
-            },
-            dian_chuan_shi: {
-                connect: { id: pandita.id },
-            },
-            yin_shi_qd_name,
-            yin_shi_qd_mandarin_name,
-            bao_shi_qd_name,
-            bao_shi_qd_mandarin_name,
-            lunar_sui_ci_year,
-            lunar_month,
-            lunar_day,
-            lunar_shi_chen_time,
-        });
+        try {
+            await createQiuDao({
+                qiu_dao_name,
+                qiu_dao_mandarin_name,
+                qiu_dao_location: {
+                    connect: { fotang_id: location.fotang_id },
+                },
+                dian_chuan_shi: {
+                    connect: { id: pandita.id },
+                },
+                yin_shi_qd_name,
+                yin_shi_qd_mandarin_name,
+                bao_shi_qd_name,
+                bao_shi_qd_mandarin_name,
+                lunar_sui_ci_year,
+                lunar_month,
+                lunar_day,
+                lunar_shi_chen_time,
+            });
+            console.log(`[IMPORT QIUDAO] Berhasil mengimpor qiudao: ${qiu_dao_name}`);
+            successCount++;
+        } catch (error) {
+            errorCount++;
+            continue;
+        }
     }
 
-    return { message: "Import Qiudao selesai" };
+    const totalProcessed = successCount + duplicateCount + errorCount;
+    return {
+        message: `Import selesai: ${successCount} berhasil, ${duplicateCount} duplikat dilewati, ${errorCount} gagal (dari ${totalProcessed} total entri)`,
+    };
 };
