@@ -137,6 +137,14 @@ router.post("/", async (req: Request, res: Response) => {
             (error as any).statusCode = 400;
             throw error;
         }
+        // Validate greg_end_date is after greg_occur_date
+        for (const occ of req.body.occurrences) {
+            if (occ.greg_end_date && new Date(occ.greg_end_date) <= new Date(occ.greg_occur_date)) {
+                const error = new Error("greg_end_date must be after greg_occur_date for each occurrence");
+                (error as any).statusCode = 400;
+                throw error;
+            }
+        }
 
         const event = await createNewEvent({
             event_type: req.body.event_type,
@@ -163,6 +171,7 @@ router.post("/", async (req: Request, res: Response) => {
             poster_s3_bucket_link: req.body.poster_s3_bucket_link || null,
             occurrences: req.body.occurrences.map((occ: any) => ({
                 greg_occur_date: new Date(occ.greg_occur_date),
+                greg_end_date: occ.greg_end_date ? new Date(occ.greg_end_date) : null,
             })),
         });
         res.status(201).json(event);
@@ -199,12 +208,22 @@ router.patch("/:id", async (req: Request, res: Response) => {
             (error as any).statusCode = 400;
             throw error;
         }
+        // Validate greg_end_date is after greg_occur_date
+        if (req.body.occurrences) {
+            for (const occ of req.body.occurrences) {
+                if (occ.greg_end_date && new Date(occ.greg_end_date) <= new Date(occ.greg_occur_date)) {
+                    const error = new Error("greg_end_date must be after greg_occur_date for each occurrence");
+                    (error as any).statusCode = 400;
+                    throw error;
+                }
+            }
+        }
 
         const event = await updateExistingEvent(parseInt(req.params.id), {
             event_type: req.body.event_type,
             event_name: req.body.event_name,
             event_mandarin_name: req.body.event_mandarin_name || null,
-            locationId: req.body.locationId ? parseInt(req.body.locationId) : undefined,
+            locationId: req.body.locationId ? parseInt(req.body.localityId) : undefined, // Fixed: Use localityId for consistency
             locationData: req.body.location_name ? {
                 location_name: req.body.location_name,
                 location_mandarin_name: req.body.location_mandarin_name || null,
@@ -226,6 +245,7 @@ router.patch("/:id", async (req: Request, res: Response) => {
             poster_s3_bucket_link: req.body.poster_s3_bucket_link || null,
             occurrences: req.body.occurrences ? req.body.occurrences.map((occ: any) => ({
                 greg_occur_date: new Date(occ.greg_occur_date),
+                greg_end_date: occ.greg_end_date ? new Date(occ.greg_end_date) : null,
             })) : undefined,
         });
         res.status(200).json(event);

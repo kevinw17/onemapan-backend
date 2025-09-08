@@ -9,7 +9,7 @@ import {
     getEventsFiltered,
 } from "./event.repository";
 
-// Define the type for Event with relations (same as in event.repository.ts)
+// Define the type for Event with relations
 type EventWithRelations = Event & {
     location: Location;
     occurrences: Occurrence[];
@@ -38,7 +38,7 @@ interface CreateEventInput {
     is_recurring: boolean;
     description: string | null;
     poster_s3_bucket_link: string | null;
-    occurrences: { greg_occur_date: Date }[];
+    occurrences: { greg_occur_date: Date; greg_end_date?: Date | null }[];
 }
 
 interface UpdateEventInput {
@@ -65,7 +65,7 @@ interface UpdateEventInput {
     is_recurring?: boolean;
     description?: string | null;
     poster_s3_bucket_link?: string | null;
-    occurrences?: { greg_occur_date: Date }[];
+    occurrences?: { greg_occur_date: Date; greg_end_date?: Date | null }[];
 }
 
 interface FilterEventsInput {
@@ -145,8 +145,16 @@ export const createNewEvent = async (input: CreateEventInput): Promise<EventWith
         (error as any).statusCode = 400;
         throw error;
     }
+    // Validate greg_end_date is after greg_occur_date
+    for (const occ of input.occurrences) {
+        if (occ.greg_end_date && occ.greg_end_date <= occ.greg_occur_date) {
+            const error = new Error("greg_end_date must be after greg_occur_date for each occurrence");
+            (error as any).statusCode = 400;
+            throw error;
+        }
+    }
 
-    const event = await createEvent({
+    return await createEvent({
         event_type: input.event_type,
         event_name: input.event_name,
         event_mandarin_name: input.event_mandarin_name,
@@ -171,8 +179,6 @@ export const createNewEvent = async (input: CreateEventInput): Promise<EventWith
         poster_s3_bucket_link: input.poster_s3_bucket_link,
         occurrences: input.occurrences,
     });
-
-    return event;
 };
 
 export const updateExistingEvent = async (eventId: number, input: UpdateEventInput): Promise<EventWithRelations> => {
@@ -187,6 +193,17 @@ export const updateExistingEvent = async (eventId: number, input: UpdateEventInp
         (error as any).statusCode = 400;
         throw error;
     }
+    // Validate greg_end_date is after greg_occur_date
+    if (input.occurrences) {
+        for (const occ of input.occurrences) {
+            if (occ.greg_end_date && occ.greg_end_date <= occ.greg_occur_date) {
+                const error = new Error("greg_end_date must be after greg_occur_date for each occurrence");
+                (error as any).statusCode = 400;
+                throw error;
+            }
+        }
+    }
+
     return await updateEvent(eventId, input);
 };
 

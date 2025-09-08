@@ -14,7 +14,7 @@ type CreateEventInput = Omit<Event, "event_id" | "created_at" | "updated_at" | "
         cityId: number;
         districtId: number;
     };
-    occurrences: { greg_occur_date: Date }[];
+    occurrences: { greg_occur_date: Date; greg_end_date?: Date | null }[];
 };
 
 // Input type for updating an event
@@ -24,7 +24,7 @@ type UpdateEventInput = Partial<Omit<Event, "event_id" | "created_at" | "updated
         cityId?: number;
         districtId?: number;
     };
-    occurrences?: { greg_occur_date: Date }[];
+    occurrences?: { greg_occur_date: Date; greg_end_date?: Date | null }[];
 };
 
 // Interface for filtered events options
@@ -149,6 +149,13 @@ export const getEventById = async (eventId: number): Promise<EventWithRelations 
 };
 
 export const createEvent = async (data: CreateEventInput): Promise<EventWithRelations> => {
+    // Validate greg_end_date is after greg_occur_date for each occurrence
+    for (const occ of data.occurrences) {
+        if (occ.greg_end_date && occ.greg_end_date <= occ.greg_occur_date) {
+            throw new Error("greg_end_date must be after greg_occur_date for each occurrence");
+        }
+    }
+
     return await prisma.$transaction(async (tx) => {
         // Validate required location fields
         if (!data.locationData.provinceId || !data.locationData.cityId || !data.locationData.districtId || !data.locationData.localityId) {
@@ -187,6 +194,7 @@ export const createEvent = async (data: CreateEventInput): Promise<EventWithRela
                 occurrences: {
                     create: data.occurrences.map((occ) => ({
                         greg_occur_date: occ.greg_occur_date,
+                        greg_end_date: occ.greg_end_date || null,
                     })),
                 },
             },
@@ -220,6 +228,15 @@ export const updateEvent = async (
     eventId: number,
     data: UpdateEventInput
 ): Promise<EventWithRelations> => {
+    // Validate greg_end_date is after greg_occur_date for each occurrence
+    if (data.occurrences) {
+        for (const occ of data.occurrences) {
+            if (occ.greg_end_date && occ.greg_end_date <= occ.greg_occur_date) {
+                throw new Error("greg_end_date must be after greg_occur_date for each occurrence");
+            }
+        }
+    }
+
     return await prisma.$transaction(async (tx) => {
         // Update Location if locationData is provided
         if (data.locationData && data.locationId) {
@@ -264,6 +281,7 @@ export const updateEvent = async (
             eventUpdateData.occurrences = {
                 create: data.occurrences.map((occ) => ({
                     greg_occur_date: occ.greg_occur_date,
+                    greg_end_date: occ.greg_end_date || null,
                 })),
             };
         }
@@ -341,7 +359,16 @@ export const createOccurrence = async (
     eventId: number,
     data: Omit<Occurrence, "occurrence_id" | "created_at" | "updated_at">
 ): Promise<Occurrence> => {
+    // Validate greg_end_date is after greg_occur_date
+    if (data.greg_end_date && data.greg_end_date <= data.greg_occur_date) {
+        throw new Error("greg_end_date must be after greg_occur_date");
+    }
+
     return await prisma.occurrence.create({
-        data: { ...data, event_id: eventId },
+        data: {
+            event_id: eventId,
+            greg_occur_date: data.greg_occur_date,
+            greg_end_date: data.greg_end_date || null,
+        },
     });
 };

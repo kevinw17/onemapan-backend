@@ -208,6 +208,7 @@ model Occurrence {
   event_id        Int
   event           Event     @relation(fields: [event_id], references: [event_id])
   greg_occur_date DateTime
+  greg_end_date   DateTime?
   created_at      DateTime? @default(now())
   updated_at      DateTime? @updatedAt
 }
