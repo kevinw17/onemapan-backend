@@ -58,7 +58,6 @@ router.get("/provinces", async (_req: Request, res: Response) => {
     const provinces = await fetchProvinces();
     res.json(provinces);
   } catch (error: any) {
-    console.error("Error saat ambil provinces:", error);
     res.status(500).json({ message: error.message });
   }
 });
@@ -145,7 +144,6 @@ router.get("/city/:id", async (req, res) => {
 });
 
 router.get("/:id", async (req: Request, res: Response) => {
-  console.log("📥 GET /location/:id DIPANGGIL");
   void (async () => {
     const id = parseInt(req.params.id);
     const location = await getLocationById(id);

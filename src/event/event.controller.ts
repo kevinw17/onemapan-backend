@@ -8,8 +8,72 @@ import {
     getFilteredEvents,
 } from "./event.service";
 import { EventType } from "@prisma/client";
+import multer from "multer";
+import { v4 as uuidv4 } from "uuid";
+import path from "path";
+import fs from "fs";
 
 const router = Router();
+
+const uploadPath = path.join(__dirname, "../../public/uploads"); // Changed to public/uploads
+
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        try {
+            if (!fs.existsSync(uploadPath)) {
+                fs.mkdirSync(uploadPath, { recursive: true });
+            }
+            fs.accessSync(uploadPath, fs.constants.W_OK);
+            cb(null, uploadPath);
+        } catch (err) {
+            console.error("Directory access error:", err);
+        }
+    },
+    filename: (req, file, cb) => {
+        const extension = file.mimetype === "image/jpeg" ? "jpg" : "png";
+        const filename = `${uuidv4()}.${extension}`;
+        cb(null, filename);
+    },
+});
+
+const upload = multer({
+    storage,
+    limits: { fileSize: 5 * 1024 * 1024 },
+    fileFilter: (req, file, cb) => {
+        const allowedTypes = ["image/jpeg", "image/png"];
+        if (!allowedTypes.includes(file.mimetype)) {
+            return cb(new Error("Hanya file JPG dan PNG yang diperbolehkan"));
+        }
+        cb(null, true);
+    },
+});
+
+router.post("/upload", upload.single("file"), async (req: Request, res: Response) => {
+    try {
+        if (!req.file) {
+            const error = new Error("Tidak ada file yang diunggah");
+            (error as any).statusCode = 400;
+            throw error;
+        }
+        const { filename, path: filePath, size } = req.file;
+        try {
+            const buffer = fs.readFileSync(filePath);
+        } catch (err) {
+            console.error("Error reading saved file:", err);
+        }
+        const baseUrl = process.env.SERVER_BASE_URL;
+        if (!baseUrl) {
+            const error = new Error("Server configuration error");
+            (error as any).statusCode = 500;
+            throw error;
+        }
+        const url = `${baseUrl}/uploads/${filename}`;
+        res.status(200).json({ url });
+    } catch (error: any) {
+        const statusCode = error.statusCode || 500;
+        res.status(statusCode).json({ message: error.message });
+    }
+});
 
 router.get("/", async (req: Request, res: Response) => {
     try {
@@ -25,7 +89,6 @@ router.get("/filtered", async (req: Request, res: Response) => {
     try {
         const { event_type, provinceId } = req.query;
 
-        // Define valid EventType values
         const validEventTypes = [
             "Regular",
             "Hari_Besar",
@@ -35,13 +98,12 @@ router.get("/filtered", async (req: Request, res: Response) => {
             "Seasonal",
         ];
 
-        // Parse event_type
         let eventTypeParam: EventType | EventType[] | undefined;
         if (event_type) {
             if (typeof event_type === "string") {
                 const eventTypes = event_type.split(",").filter(type => validEventTypes.includes(type));
                 if (eventTypes.length === 0) {
-                    throw new Error("Invalid event_type provided");
+                    throw new Error("event_type tidak valid");
                 }
                 eventTypeParam = eventTypes.length === 1 ? eventTypes[0] as EventType : eventTypes as EventType[];
             } else if (Array.isArray(event_type)) {
@@ -49,15 +111,14 @@ router.get("/filtered", async (req: Request, res: Response) => {
                     .filter(type => typeof type === "string" && validEventTypes.includes(type))
                     .map(type => type as EventType);
                 if (eventTypes.length === 0) {
-                    throw new Error("Invalid event_type provided");
+                    throw new Error("event_type tidak valid");
                 }
                 eventTypeParam = eventTypes;
             } else {
-                throw new Error("Invalid event_type format");
+                throw new Error("Format event_type tidak valid");
             }
         }
 
-        // Parse provinceId
         let provinceIdParam: number | number[] | undefined;
         if (provinceId) {
             if (typeof provinceId === "string") {
@@ -71,7 +132,7 @@ router.get("/filtered", async (req: Request, res: Response) => {
                     .map(id => parseInt(id.toString()))
                     .filter(id => !isNaN(id) && id > 0);
                 if (ids.length === 0) {
-                    throw new Error("Invalid provinceId provided");
+                    throw new Error("provinceId tidak valid");
                 }
                 provinceIdParam = ids;
             } else {
@@ -79,7 +140,7 @@ router.get("/filtered", async (req: Request, res: Response) => {
                 if (!isNaN(id) && id > 0) {
                     provinceIdParam = id;
                 } else {
-                    throw new Error("Invalid provinceId provided");
+                    throw new Error("provinceId tidak valid");
                 }
             }
         }
@@ -137,10 +198,9 @@ router.post("/", async (req: Request, res: Response) => {
             (error as any).statusCode = 400;
             throw error;
         }
-        // Validate greg_end_date is after greg_occur_date
         for (const occ of req.body.occurrences) {
             if (occ.greg_end_date && new Date(occ.greg_end_date) <= new Date(occ.greg_occur_date)) {
-                const error = new Error("greg_end_date must be after greg_occur_date for each occurrence");
+                const error = new Error("greg_end_date harus setelah greg_occur_date untuk setiap occurrence");
                 (error as any).statusCode = 400;
                 throw error;
             }
@@ -208,11 +268,10 @@ router.patch("/:id", async (req: Request, res: Response) => {
             (error as any).statusCode = 400;
             throw error;
         }
-        // Validate greg_end_date is after greg_occur_date
         if (req.body.occurrences) {
             for (const occ of req.body.occurrences) {
                 if (occ.greg_end_date && new Date(occ.greg_end_date) <= new Date(occ.greg_occur_date)) {
-                    const error = new Error("greg_end_date must be after greg_occur_date for each occurrence");
+                    const error = new Error("greg_end_date harus setelah greg_occur_date untuk setiap occurrence");
                     (error as any).statusCode = 400;
                     throw error;
                 }
@@ -223,7 +282,7 @@ router.patch("/:id", async (req: Request, res: Response) => {
             event_type: req.body.event_type,
             event_name: req.body.event_name,
             event_mandarin_name: req.body.event_mandarin_name || null,
-            locationId: req.body.locationId ? parseInt(req.body.localityId) : undefined, // Fixed: Use localityId for consistency
+            locationId: req.body.locationId ? parseInt(req.body.locationId) : undefined,
             locationData: req.body.location_name ? {
                 location_name: req.body.location_name,
                 location_mandarin_name: req.body.location_mandarin_name || null,

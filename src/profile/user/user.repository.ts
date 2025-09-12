@@ -282,7 +282,6 @@ export const getUsersPaginated = async ({
   gender,
   blood_type,
 }: PaginatedUserOptions): Promise<{ data: User[]; total: number }> => {
-  console.log("Received Params:", { skip, limit, search, searchField, spiritualStatus, job_name, last_education_level, is_qing_kou, gender, blood_type });
   const nestedFields: Record<string, Prisma.UserWhereInput> = {
     "domicile_location.locality": buildLocationFilter("domicile_location", "locality", search),
     "id_card_location.locality": buildLocationFilter("id_card_location", "locality", search),
@@ -380,7 +379,6 @@ export const getUsersPaginated = async ({
   }
 
   where = filters.length > 1 ? { AND: filters } : where;
-  console.log("Where Clause:", JSON.stringify(where, null, 2));
 
   const locationInclude = {
     locality: {
