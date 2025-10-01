@@ -1,0 +1,120 @@
+import { Request, Response, NextFunction } from "express";
+import { getRolesByUserId } from "../role/role.service";
+import prisma from "../db";
+import { Korwil } from "@prisma/client";
+
+interface PermissionCheck {
+  feature: string;
+  action: string;
+  scope?: string;
+}
+
+declare global {
+  namespace Express {
+    interface Request {
+      userScope?: string;
+      userLocationId?: number;
+      userArea?: Korwil;
+    }
+  }
+}
+
+export const authorize = (required: PermissionCheck) => {
+  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    console.log("=== DEBUG authorize ===");
+    console.log("Required Permission:", required);
+    console.log("User:", req.user);
+
+    try {
+      const userId = req.user?.user_info_id;
+      if (!userId) {
+        console.log("No user ID in token");
+        res.status(401).json({ message: "Unauthorized: User not authenticated" });
+        return;
+      }
+
+      const userRoles = await getRolesByUserId(userId);
+      console.log("User Roles:", userRoles.map(ur => ({ name: ur.role.name, permissions: ur.role.permissions })));
+
+      if (userRoles.length === 0) {
+        console.log("No roles assigned");
+        res.status(403).json({ message: "Forbidden: No roles assigned" });
+        return;
+      }
+
+      let hasAccess = false;
+      let userScope = "self";
+      let userArea: Korwil | undefined;
+
+      for (const userRole of userRoles) {
+        const permissions: any = userRole.role.permissions;
+        console.log(`Checking role ${userRole.role.name} permissions:`, permissions);
+        const featurePerms = permissions[required.feature];
+
+        if (featurePerms && featurePerms[required.action] === true) {
+          console.log(`Found permission for ${required.feature}.${required.action}`);
+          hasAccess = true;
+          if (featurePerms.scope === "nasional" || featurePerms.scope === "wilayah") {
+            userScope = featurePerms.scope;
+            console.log(`Set userScope to ${userScope} from role ${userRole.role.name}`);
+          }
+        } else {
+          console.log(`No permission for ${required.feature}.${required.action} in role ${userRole.role.name}`);
+        }
+      }
+
+      console.log("Has Access:", hasAccess, "User Scope:", userScope);
+
+      if (!hasAccess) {
+        console.log("Permission denied: No access to feature/action");
+        res.status(403).json({ message: `Forbidden: No permission for ${required.feature}.${required.action}` });
+        return;
+      }
+
+      if (required.scope && userScope !== required.scope && userScope !== "nasional") {
+        console.log(`Scope mismatch: required=${required.scope}, userScope=${userScope}`);
+        res.status(403).json({ message: `Forbidden: Scope mismatch for ${required.feature}` });
+        return;
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { user_info_id: userId },
+        include: {
+          qiudao: {
+            include: {
+              qiu_dao_location: true,
+            },
+          },
+          domicile_location: true,
+        },
+      });
+
+      if (!user) {
+        console.log("User not found in User table");
+        res.status(404).json({ message: "User not found" });
+        return;
+      }
+
+      userArea = user.qiudao?.qiu_dao_location?.area as Korwil | undefined;
+      console.log("User Area:", userArea);
+
+      if (!userArea && userScope === "wilayah") {
+        console.warn("No area found for user with wilayah scope");
+        res.status(403).json({ message: "Forbidden: User has no assigned area" });
+        return;
+      }
+
+      req.userScope = userScope;
+      req.userLocationId = user.domicile_location_id;
+      req.userArea = userArea;
+
+      console.log("Assigned Scope:", req.userScope, "Area:", req.userArea, "Location ID:", req.userLocationId);
+
+      next();
+    } catch (error: any) {
+      console.error("Error in authorize:", error.message);
+      res.status(500).json({ message: error.message });
+      return;
+    }
+  };
+};

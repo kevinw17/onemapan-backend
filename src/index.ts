@@ -13,6 +13,7 @@ import importController from "./import/import.controller";
 import dianchuanshiController from "./dianchuanshi/dianchuanshi.controller";
 import fotangController from "./fotang/fotang.controller";
 import eventController from "./event/event.controller";
+import roleController from "./role/role.controller"
 import qs from "qs";
 
 dotenv.config();
@@ -68,6 +69,7 @@ app.use("/import", importController);
 app.use("/dianchuanshi", dianchuanshiController);
 app.use("/fotang", fotangController);
 app.use("/event", eventController);
+app.use("/role", roleController);
 
 app.use((err: any, req: Request, res: Response, next: () => void) => {
     res.status(err.statusCode || 500).json({ message: err.message || "Internal server error" });

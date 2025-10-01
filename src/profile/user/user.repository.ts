@@ -1,5 +1,6 @@
 import prisma from "../../db";
-import { BloodType, Gender, Prisma, SpiritualStatus, User, UserCredential } from "@prisma/client";
+import { BloodType, Gender, Prisma, SpiritualStatus, User, UserCredential, Korwil, Role, UserRole } from "@prisma/client";
+import { UserWithRelations } from "../../types/user";
 
 export const findCredential = async (
   user_credential: number
@@ -57,53 +58,25 @@ export const getAllUsers = async (): Promise<User[]> => {
   });
 };
 
-export const findUserById = async (
-  id: number
-): Promise<User | null> => {
+type UserWithIncludes = User & {
+  qiudao?: { qiu_dao_location?: { area: Korwil } };
+  id_card_location?: any;
+  domicile_location?: any;
+  userCredential?: any;
+  spiritualUser?: any;
+  userRoles?: (UserRole & { role: Role })[];
+};
+
+export const findUserById = async (id: number): Promise<UserWithIncludes | null> => {
   return await prisma.user.findUnique({
     where: { user_info_id: id },
     include: {
-      qiudao: {
-        include: {
-          qiu_dao_location: true,
-        },
-      },
-      id_card_location: {
-        include: {
-          locality: {
-            include: {
-              district: {
-                include: {
-                  city: {
-                    include: {
-                      province: true,
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
-      domicile_location: {
-        include: {
-          locality: {
-            include: {
-              district: {
-                include: {
-                  city: {
-                    include: {
-                      province: true,
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
+      qiudao: { include: { qiu_dao_location: true } },
+      id_card_location: { include: { locality: { include: { district: { include: { city: { include: { province: true } } } } } } } },
+      domicile_location: { include: { locality: { include: { district: { include: { city: { include: { province: true } } } } } } } },
       userCredential: true,
       spiritualUser: true,
+      userRoles: { include: { role: true } },
     },
   });
 };
@@ -193,16 +166,18 @@ export const deleteUser = async (id: number): Promise<User> => {
 };
 
 interface PaginatedUserOptions {
-  skip: number;
-  limit: number;
-  search: string;
-  searchField: string;
+  skip?: number;
+  limit?: number;
+  search?: string;
+  searchField?: string;
   spiritualStatus?: string | string[];
   job_name?: string | string[];
   last_education_level?: string | string[];
   is_qing_kou?: string | string[];
   gender?: string | string[];
   blood_type?: string | string[];
+  userArea?: Korwil;
+  userId?: number; // Add userId for self scope
 }
 
 function buildLocationFilter(
@@ -281,23 +256,28 @@ export const getUsersPaginated = async ({
   is_qing_kou,
   gender,
   blood_type,
+  userArea,
+  userId,
 }: PaginatedUserOptions): Promise<{ data: User[]; total: number }> => {
   const nestedFields: Record<string, Prisma.UserWhereInput> = {
-    "domicile_location.locality": buildLocationFilter("domicile_location", "locality", search),
-    "id_card_location.locality": buildLocationFilter("id_card_location", "locality", search),
-    "domicile_location.district": buildLocationFilter("domicile_location", "district", search),
-    "id_card_location.district": buildLocationFilter("id_card_location", "district", search),
-    "domicile_location.city": buildLocationFilter("domicile_location", "city", search),
-    "id_card_location.city": buildLocationFilter("id_card_location", "city", search),
-    "domicile_location.province": buildLocationFilter("domicile_location", "province", search),
-    "id_card_location.province": buildLocationFilter("id_card_location", "province", search),
+    "domicile_location.locality": buildLocationFilter("domicile_location", "locality", search ?? ""),
+    "id_card_location.locality": buildLocationFilter("id_card_location", "locality", search ?? ""),
+    "domicile_location.district": buildLocationFilter("domicile_location", "district", search ?? ""),
+    "id_card_location.district": buildLocationFilter("id_card_location", "district", search ?? ""),
+    "domicile_location.city": buildLocationFilter("domicile_location", "city", search ?? ""),
+    "id_card_location.city": buildLocationFilter("id_card_location", "city", search ?? ""),
+    "domicile_location.province": buildLocationFilter("domicile_location", "province", search ?? ""),
+    "id_card_location.province": buildLocationFilter("id_card_location", "province", search ?? ""),
   };
 
-  let where: Prisma.UserWhereInput;
+  let where: Prisma.UserWhereInput = {};
 
-  if (nestedFields[searchField]) {
-    where = nestedFields[searchField];
-  } else {
+  // Handle undefined searchField by defaulting to "full_name"
+  const effectiveSearchField = searchField ?? "full_name";
+
+  if (nestedFields[effectiveSearchField] && search) {
+    where = nestedFields[effectiveSearchField];
+  } else if (search) {
     const searchableFields = [
       "full_name",
       "mandarin_name",
@@ -310,8 +290,8 @@ export const getUsersPaginated = async ({
       "job_name",
     ];
 
-    const field = searchableFields.includes(searchField)
-      ? (searchField as keyof Prisma.StringFilter)
+    const field = searchableFields.includes(effectiveSearchField)
+      ? (effectiveSearchField as keyof Prisma.StringFilter)
       : "full_name";
 
     where = {
@@ -325,6 +305,12 @@ export const getUsersPaginated = async ({
   const filters: Prisma.UserWhereInput[] = [where];
 
   const combinedFilter: Prisma.UserWhereInput = {};
+
+  // Add userId filter for self scope
+  if (userId) {
+    combinedFilter.user_info_id = { equals: userId };
+  }
+
   if (job_name) {
     if (Array.isArray(job_name) && job_name.length > 0) {
       combinedFilter.job_name = { in: job_name.map(val => val as string) };
@@ -352,7 +338,6 @@ export const getUsersPaginated = async ({
   }
   if (is_qing_kou) {
     if (Array.isArray(is_qing_kou) && is_qing_kou.length > 0) {
-      // Hanya ambil nilai pertama dan konversi ke boolean
       combinedFilter.is_qing_kou = { equals: is_qing_kou[0] === "true" };
     } else if (typeof is_qing_kou === "string" && is_qing_kou.trim() !== "") {
       combinedFilter.is_qing_kou = { equals: is_qing_kou === "true" };
@@ -372,13 +357,20 @@ export const getUsersPaginated = async ({
       combinedFilter.blood_type = { equals: blood_type as BloodType };
     }
   }
+  if (userArea) {
+    combinedFilter.qiudao = {
+      qiu_dao_location: {
+        area: { equals: userArea },
+      },
+    };
+  }
 
   console.log("Combined Filter:", JSON.stringify(combinedFilter, null, 2));
   if (Object.keys(combinedFilter).length > 0) {
     filters.push(combinedFilter);
   }
 
-  where = filters.length > 1 ? { AND: filters } : where;
+  where = filters.length > 1 ? { AND: filters } : filters[0] || {};
 
   const locationInclude = {
     locality: {

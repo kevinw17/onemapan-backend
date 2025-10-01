@@ -1,4 +1,5 @@
 import prisma from "../../db";
+import { UserWithRelations } from "../../types/user";
 import {
   findCredential,
   createUser,
@@ -8,7 +9,7 @@ import {
   getUsersPaginated,
   updateUserWithSpiritualStatus,
 } from "./user.repository";
-import { Prisma, User, Gender, BloodType, MaritalStatus, SpiritualStatus } from "@prisma/client";
+import { Prisma, User, Gender, BloodType, MaritalStatus, SpiritualStatus, Korwil, UserRole, Role } from "@prisma/client";
 
 interface RegisterUserInput {
   user_credential?: number;
@@ -150,6 +151,8 @@ interface FetchAllUsersOptions {
   is_qing_kou?: string | string[];
   gender?: string | string[];
   blood_type?: string | string[];
+  userArea?: Korwil;
+  userId?: number;
 }
 
 export const fetchAllUsers = async ({
@@ -163,13 +166,37 @@ export const fetchAllUsers = async ({
   is_qing_kou,
   gender,
   blood_type,
+  userArea,
+  userId,
 }: FetchAllUsersOptions) => {
+  console.log("fetchAllUsers Input:", { page, limit, search, searchField, userArea, userId });
   const skip = (page - 1) * limit;
-  return await getUsersPaginated({ skip, limit, search, searchField, spiritualStatus, job_name, last_education_level, is_qing_kou, gender, blood_type });
+  const result = await getUsersPaginated({
+    skip,
+    limit,
+    search,
+    searchField,
+    spiritualStatus,
+    job_name,
+    last_education_level,
+    is_qing_kou,
+    gender,
+    blood_type,
+    userArea,
+    userId,
+  });
+  console.log("fetchAllUsers Result:", result);
+  return result;
 };
 
-export const getUserById = async (id: number): Promise<User | null> => {
-  return await findUserById(id);
+export const getUserById = async (id: number): Promise<UserWithRelations | null> => {
+  const user = await findUserById(id);
+  if (!user) return null;
+
+  return {
+    ...user,
+    role: user.userRoles?.[0]?.role.name || null,
+  };
 };
 
 export const updateUserById = async (
@@ -201,4 +228,21 @@ export const deleteUserById = async (id: number): Promise<User> => {
   }
 
   return await deleteUser(id);
+};
+
+export const updateOwnProfile = async (
+  userId: number,
+  updateData: UpdateUserInput
+): Promise<User> => {
+  const allowedFields: UpdateUserInput = {
+    full_name: updateData.full_name,
+    mandarin_name: updateData.mandarin_name,
+    phone_number: updateData.phone_number,
+    email: updateData.email,
+    last_education_level: updateData.last_education_level,
+    education_major: updateData.education_major,
+    job_name: updateData.job_name,
+  };
+
+  return await updateUserById(userId, allowedFields);
 };

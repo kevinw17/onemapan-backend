@@ -41,6 +41,27 @@ model User {
   created_at           DateTime?       @default(now())
   updated_at           DateTime?       @updatedAt
   userCredential       UserCredential?
+  userRoles            UserRole[]
+}
+
+model Role {
+  role_id     Int        @id @default(autoincrement())
+  name        String     @db.VarChar(100)
+  description String?    @db.VarChar(255)
+  permissions Json       @db.Json
+  created_at  DateTime?  @default(now())
+  updated_at  DateTime?  @updatedAt
+  userRoles   UserRole[]
+}
+
+model UserRole {
+  user_id    Int
+  role_id    Int
+  user       User      @relation(fields: [user_id], references: [user_info_id])
+  role       Role      @relation(fields: [role_id], references: [role_id])
+  created_at DateTime? @default(now())
+
+  @@id([user_id, role_id])
 }
 
 model QiuDao {

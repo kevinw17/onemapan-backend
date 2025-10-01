@@ -98,6 +98,7 @@ interface QiudaoPaginationOptions {
   limit: number;
   search: string;
   searchField: string;
+  qiu_dao_location_id?: number; // Tambah untuk filter wilayah
 }
 
 export const getQiudaosPaginated = async ({
@@ -105,6 +106,7 @@ export const getQiudaosPaginated = async ({
   limit,
   search,
   searchField,
+  qiu_dao_location_id,
 }: QiudaoPaginationOptions): Promise<{
   data: QiuDao[];
   total: number;
@@ -163,24 +165,24 @@ export const getQiudaosPaginated = async ({
       },
     },
     "dian_chuan_shi_name": {
-    dian_chuan_shi: {
-      name: {
-        contains: search,
-        mode: "insensitive",
+      dian_chuan_shi: {
+        name: {
+          contains: search,
+          mode: "insensitive",
+        },
       },
     },
-  },
-  "dian_chuan_shi_mandarin_name": {
-    dian_chuan_shi: {
-      mandarin_name: {
-        contains: search,
-        mode: "insensitive",
+    "dian_chuan_shi_mandarin_name": {
+      dian_chuan_shi: {
+        mandarin_name: {
+          contains: search,
+          mode: "insensitive",
+        },
       },
     },
-  },
   };
 
-  let where: Prisma.QiuDaoWhereInput;
+  let where: Prisma.QiuDaoWhereInput = {};
 
   if (nestedFields[searchField]) {
     where = nestedFields[searchField];
@@ -211,6 +213,15 @@ export const getQiudaosPaginated = async ({
       },
     } as Prisma.QiuDaoWhereInput;
   }
+
+  if (qiu_dao_location_id) {
+    where = {
+      ...where,
+      qiu_dao_location_id,
+    };
+  }
+
+  console.log("Final Where Clause:", JSON.stringify(where, null, 2)); // Log debug
 
   const [data, total] = await Promise.all([
     prisma.qiuDao.findMany({

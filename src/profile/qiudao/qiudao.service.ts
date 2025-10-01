@@ -23,7 +23,7 @@ export const registerQiuDao = async (
     lunar_month,
     lunar_day,
     lunar_shi_chen_time,
-    dian_chuan_shi,
+    dian_chuan_shi_id,
     yin_shi_qd_name,
     yin_shi_qd_mandarin_name,
     bao_shi_qd_name,
@@ -58,14 +58,14 @@ export const registerQiuDao = async (
     lunar_month,
     lunar_day,
     lunar_shi_chen_time,
-    dian_chuan_shi: data.dian_chuan_shi_id
-    ? { connect: { id: data.dian_chuan_shi_id } }
-    : undefined,
+    dian_chuan_shi: dian_chuan_shi_id
+      ? { connect: { id: dian_chuan_shi_id } }
+      : undefined,
     yin_shi_qd_name,
     yin_shi_qd_mandarin_name,
     bao_shi_qd_name,
     bao_shi_qd_mandarin_name,
-    qiu_dao_card_s3_url: null,
+    qiu_dao_card_s3_url: null, // Ubah dari qiu_dao_card_s3_url ke qiu_dao_card_s3_url jika nama field salah
   });
 };
 
@@ -74,6 +74,7 @@ interface FetchAllQiudaoOptions {
   limit?: number;
   search?: string;
   searchField?: string;
+  qiu_dao_location_id?: number; // Tambah parameter
 }
 
 export const fetchAllQiudao = async ({
@@ -81,9 +82,10 @@ export const fetchAllQiudao = async ({
   limit = 10,
   search = "",
   searchField = "qiu_dao_mandarin_name",
+  qiu_dao_location_id,
 }: FetchAllQiudaoOptions) => {
   const skip = (page - 1) * limit;
-  return await getQiudaosPaginated({ skip, limit, search, searchField });
+  return await getQiudaosPaginated({ skip, limit, search, searchField, qiu_dao_location_id });
 };
 
 export const getQiuDaoById = async (
