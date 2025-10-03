@@ -1,5 +1,5 @@
 import prisma from "../../db";
-import { Prisma, QiuDao } from "@prisma/client";
+import { Prisma, QiuDao, Korwil } from "@prisma/client";
 
 export const createQiuDao = async (
   data: Prisma.QiuDaoCreateInput
@@ -17,9 +17,7 @@ export type QiuDaoWithRelations = Prisma.QiuDaoGetPayload<{
             district: {
               include: {
                 city: {
-                  include: {
-                    province: true;
-                  };
+                  include: { province: true };
                 };
               };
             };
@@ -41,9 +39,7 @@ export const getAllQiuDao = async (): Promise<QiuDaoWithRelations[]> => {
               district: {
                 include: {
                   city: {
-                    include: {
-                      province: true,
-                    },
+                    include: { province: true },
                   },
                 },
               },
@@ -57,11 +53,25 @@ export const getAllQiuDao = async (): Promise<QiuDaoWithRelations[]> => {
 
 export const findQiuDaoById = async (
   id: number
-): Promise<QiuDao | null> => {
+): Promise<QiuDaoWithRelations | null> => {
   return await prisma.qiuDao.findUnique({
     where: { qiu_dao_id: id },
     include: {
-      qiu_dao_location: true,
+      qiu_dao_location: {
+        include: {
+          locality: {
+            include: {
+              district: {
+                include: {
+                  city: {
+                    include: { province: true },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
       dian_chuan_shi: true,
     },
   });
@@ -98,7 +108,8 @@ interface QiudaoPaginationOptions {
   limit: number;
   search: string;
   searchField: string;
-  qiu_dao_location_id?: number; // Tambah untuk filter wilayah
+  area?: Korwil;
+  userId?: number;
 }
 
 export const getQiudaosPaginated = async ({
@@ -106,12 +117,35 @@ export const getQiudaosPaginated = async ({
   limit,
   search,
   searchField,
-  qiu_dao_location_id,
+  area,
+  userId,
 }: QiudaoPaginationOptions): Promise<{
-  data: QiuDao[];
+  data: QiuDaoWithRelations[];
   total: number;
 }> => {
   const nestedFields: Record<string, Prisma.QiuDaoWhereInput> = {
+    "qiu_dao_location.locality": {
+      qiu_dao_location: {
+        locality: {
+          name: {
+            contains: search,
+            mode: "insensitive",
+          },
+        },
+      },
+    },
+    "qiu_dao_location.district": {
+      qiu_dao_location: {
+        locality: {
+          district: {
+            name: {
+              contains: search,
+              mode: "insensitive",
+            },
+          },
+        },
+      },
+    },
     "qiu_dao_location.city": {
       qiu_dao_location: {
         locality: {
@@ -142,29 +176,7 @@ export const getQiudaosPaginated = async ({
         },
       },
     },
-    "qiu_dao_location.district": {
-      qiu_dao_location: {
-        locality: {
-          district: {
-            name: {
-              contains: search,
-              mode: "insensitive",
-            },
-          },
-        },
-      },
-    },
-    "qiu_dao_location.locality": {
-      qiu_dao_location: {
-        locality: {
-          name: {
-            contains: search,
-            mode: "insensitive",
-          },
-        },
-      },
-    },
-    "dian_chuan_shi_name": {
+    "dian_chuan_shi.name": {
       dian_chuan_shi: {
         name: {
           contains: search,
@@ -172,7 +184,7 @@ export const getQiudaosPaginated = async ({
         },
       },
     },
-    "dian_chuan_shi_mandarin_name": {
+    "dian_chuan_shi.mandarin_name": {
       dian_chuan_shi: {
         mandarin_name: {
           contains: search,
@@ -184,18 +196,14 @@ export const getQiudaosPaginated = async ({
 
   let where: Prisma.QiuDaoWhereInput = {};
 
-  if (nestedFields[searchField]) {
-    where = nestedFields[searchField];
-  } else {
+  // Handle nested search fields
+  const effectiveSearchField = nestedFields[searchField] ? searchField : null;
+  if (effectiveSearchField) {
+    where = nestedFields[effectiveSearchField];
+  } else if (search) {
     const searchableFields = [
       "qiu_dao_name",
       "qiu_dao_mandarin_name",
-      "dian_chuan_shi_name",
-      "dian_chuan_shi_mandarin_name",
-      "yin_shi_qd_name",
-      "yin_shi_qd_mandarin_name",
-      "bao_shi_qd_name",
-      "bao_shi_qd_mandarin_name",
       "lunar_sui_ci_year",
       "lunar_month",
       "lunar_day",
@@ -211,17 +219,54 @@ export const getQiudaosPaginated = async ({
         contains: search,
         mode: "insensitive",
       },
-    } as Prisma.QiuDaoWhereInput;
-  }
-
-  if (qiu_dao_location_id) {
-    where = {
-      ...where,
-      qiu_dao_location_id,
     };
   }
 
-  console.log("Final Where Clause:", JSON.stringify(where, null, 2)); // Log debug
+  const filters: Prisma.QiuDaoWhereInput[] = [where];
+
+  const combinedFilter: Prisma.QiuDaoWhereInput = {};
+
+  // Filter berdasarkan area untuk wilayah scope
+  if (area) {
+    combinedFilter.qiu_dao_location = {
+      area,
+    };
+  }
+
+  // Filter berdasarkan user involvement untuk self scope
+  if (userId) {
+    combinedFilter.qiu_dao_id = {
+      in: await prisma.user.findMany({
+        where: { user_info_id: userId },
+        select: { qiu_dao_id: true },
+      }).then(users => users.map(u => u.qiu_dao_id).filter(id => id !== null) as number[]),
+    };
+  }
+
+  console.log("Combined Filter:", JSON.stringify(combinedFilter, null, 2));
+  if (Object.keys(combinedFilter).length > 0) {
+    filters.push(combinedFilter);
+  }
+
+  where = filters.length > 1 ? { AND: filters } : filters[0] || {};
+
+  console.log("Final Where Clause:", JSON.stringify(where, null, 2));
+
+  const locationInclude = {
+    locality: {
+      include: {
+        district: {
+          include: {
+            city: {
+              include: {
+                province: true,
+              },
+            },
+          },
+        },
+      },
+    },
+  };
 
   const [data, total] = await Promise.all([
     prisma.qiuDao.findMany({
@@ -231,21 +276,7 @@ export const getQiudaosPaginated = async ({
       include: {
         dian_chuan_shi: true,
         qiu_dao_location: {
-          include: {
-            locality: {
-              include: {
-                district: {
-                  include: {
-                    city: {
-                      include: {
-                        province: true,
-                      },
-                    },
-                  },
-                },
-              },
-            },
-          },
+          include: locationInclude,
         },
       },
     }),

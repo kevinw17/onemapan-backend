@@ -6,7 +6,7 @@ import { Korwil } from "@prisma/client";
 interface PermissionCheck {
   feature: string;
   action: string;
-  scope?: string;
+  scope?: string | string[];
 }
 
 declare global {
@@ -43,23 +43,35 @@ export const authorize = (required: PermissionCheck) => {
       }
 
       let hasAccess = false;
-      let userScope = "self";
+      let userScope = "self"; // Default scope
       let userArea: Korwil | undefined;
 
+      // Map roles to scopes
+      const roleToScope: Record<string, string> = {
+        user: "self",
+        admin: "wilayah",
+        "super admin": "nasional",
+      };
+
       for (const userRole of userRoles) {
+        const roleName = userRole.role.name.toLowerCase();
         const permissions: any = userRole.role.permissions;
-        console.log(`Checking role ${userRole.role.name} permissions:`, permissions);
+        console.log(`Checking role ${roleName} permissions:`, permissions);
         const featurePerms = permissions[required.feature];
 
         if (featurePerms && featurePerms[required.action] === true) {
           console.log(`Found permission for ${required.feature}.${required.action}`);
           hasAccess = true;
-          if (featurePerms.scope === "nasional" || featurePerms.scope === "wilayah") {
-            userScope = featurePerms.scope;
-            console.log(`Set userScope to ${userScope} from role ${userRole.role.name}`);
+
+          // Set scope based on role
+          const roleScope = roleToScope[roleName] || "self";
+          // Prioritize higher scope: nasional > wilayah > self
+          if (roleScope === "nasional" || (roleScope === "wilayah" && userScope !== "nasional") || (roleScope === "self" && userScope === "self")) {
+            userScope = roleScope;
+            console.log(`Set userScope to ${userScope} from role ${roleName}`);
           }
         } else {
-          console.log(`No permission for ${required.feature}.${required.action} in role ${userRole.role.name}`);
+          console.log(`No permission for ${required.feature}.${required.action} in role ${roleName}`);
         }
       }
 
@@ -71,8 +83,15 @@ export const authorize = (required: PermissionCheck) => {
         return;
       }
 
-      if (required.scope && userScope !== required.scope && userScope !== "nasional") {
-        console.log(`Scope mismatch: required=${required.scope}, userScope=${userScope}`);
+      // Handle scope match: Support array of scopes
+      const requiredScopes = Array.isArray(required.scope)
+        ? required.scope
+        : required.scope
+          ? [required.scope]
+          : [];
+
+      if (requiredScopes.length > 0 && !requiredScopes.includes(userScope) && userScope !== "nasional") {
+        console.log(`Scope mismatch: required=${requiredScopes.join(', ')}, userScope=${userScope}`);
         res.status(403).json({ message: `Forbidden: Scope mismatch for ${required.feature}` });
         return;
       }

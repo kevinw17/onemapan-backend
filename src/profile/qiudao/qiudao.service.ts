@@ -4,8 +4,9 @@ import {
   updateQiuDao,
   removeQiuDao,
   getQiudaosPaginated,
+  QiuDaoWithRelations,
 } from "./qiudao.repository";
-import { Prisma, QiuDao } from "@prisma/client";
+import { Prisma, QiuDao, Korwil } from "@prisma/client";
 
 interface QiudaoInput extends Omit<Prisma.QiuDaoCreateInput, "qiu_dao_card_s3_url" | "qiu_dao_location"> {
   qiu_dao_location_id: number;
@@ -74,7 +75,8 @@ interface FetchAllQiudaoOptions {
   limit?: number;
   search?: string;
   searchField?: string;
-  qiu_dao_location_id?: number; // Tambah parameter
+  area?: Korwil; // Ganti dari qiu_dao_location_id ke area (sesuai QiudaoPaginationOptions di repository)
+  userId?: number; // Opsional untuk self scope jika diperlukan
 }
 
 export const fetchAllQiudao = async ({
@@ -82,15 +84,16 @@ export const fetchAllQiudao = async ({
   limit = 10,
   search = "",
   searchField = "qiu_dao_mandarin_name",
-  qiu_dao_location_id,
+  area,
+  userId,
 }: FetchAllQiudaoOptions) => {
   const skip = (page - 1) * limit;
-  return await getQiudaosPaginated({ skip, limit, search, searchField, qiu_dao_location_id });
+  return await getQiudaosPaginated({ skip, limit, search, searchField, area, userId });
 };
 
 export const getQiuDaoById = async (
   id: number
-): Promise<QiuDao | null> => {
+): Promise<QiuDaoWithRelations | null> => {
   return await findQiuDaoById(id);
 };
 

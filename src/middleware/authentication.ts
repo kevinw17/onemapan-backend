@@ -1,4 +1,3 @@
-// authentication.ts
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 
@@ -31,8 +30,7 @@ export const authenticateJWT = (req: Request, res: Response, next: NextFunction)
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as JwtPayload;
     req.user = decoded;
-    req.userScope = decoded.scope || "self";
-    console.log("Authenticated user:", { userId: decoded.user_info_id, scope: req.userScope });
+    console.log("Authenticated user:", { userId: decoded.user_info_id, scope: decoded.scope });
     next();
   } catch (error) {
     console.error("JWT verification error:", error);

@@ -12,32 +12,12 @@ import { authorize } from "../../middleware/authorization";
 import { Korwil, Prisma, User } from "@prisma/client";
 import prisma from "../../db";
 import { UserWithRelations } from "../../types/user";
+import { JwtPayload } from "../../types/express";
 
 interface AuthRequest extends Request {
-  user?: {
-    credential_id: number;
-    username: string;
-    user_info_id: number;
-    scope?: string;
-  };
+  user?: JwtPayload;
   userScope?: string;
   userArea?: Korwil;
-}
-
-interface JwtPayload {
-  credential_id: number;
-  username: string;
-  user_info_id: number;
-}
-
-declare module "express" {
-  interface Request {
-    queryParsed?: Record<string, any>;
-    user?: JwtPayload;
-    userScope?: string;
-    userLocationId?: number;
-    userArea?: Korwil;
-  }
 }
 
 const router = express.Router();
@@ -48,33 +28,46 @@ router.post(
   authorize({ feature: "umat", action: "create", scope: "wilayah" }),
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      let qiu_dao_id = req.body.qiu_dao_id;
+      console.log("=== DEBUG POST /profile/user ===");
+      console.log("userScope:", req.userScope);
+      console.log("userArea:", req.userArea);
+      console.log("body:", req.body);
 
+      const qiu_dao_id = parseInt(req.body.qiu_dao_id);
       if (req.userScope === "wilayah" && req.userArea) {
-        const qiuDao = await prisma.qiuDao.findFirst({
-          where: {
-            qiu_dao_location: {
-              area: req.userArea,
-            },
-          },
-          select: { qiu_dao_id: true },
-        });
-
-        if (!qiuDao) {
-          res.status(400).json({ message: "No QiuDao found for the Admin's area" });
+        if (!qiu_dao_id) {
+          console.warn("No qiu_dao_id provided for wilayah user");
+          res.status(400).json({ message: "QiuDao ID wajib dipilih" });
           return;
         }
-        qiu_dao_id = qiuDao.qiu_dao_id;
+        const qiuDao = await prisma.qiuDao.findUnique({
+          where: { qiu_dao_id },
+          include: { qiu_dao_location: true },
+        });
+        if (!qiuDao) {
+          console.warn("QiuDao not found for ID:", qiu_dao_id);
+          res.status(404).json({ message: "QiuDao tidak ditemukan" });
+          return;
+        }
+        if (qiuDao.qiu_dao_location?.area !== req.userArea) {
+          console.warn("QiuDao area mismatch:", { qiuDaoArea: qiuDao.qiu_dao_location?.area, userArea: req.userArea });
+          res.status(403).json({ message: "Forbidden: QiuDao harus dari wilayah yang sama" });
+          return;
+        }
+        console.log("DEBUG: QiuDao area matches userArea:", { qiuDaoArea: qiuDao.qiu_dao_location?.area, userArea: req.userArea });
       }
 
-      await registerUser({
+      const data = {
         ...req.body,
         qiu_dao_id,
-        domicile_location_id: req.body.domicile_location_id,
-        id_card_location_id: req.body.id_card_location_id,
-      });
+        domicile_location_id: parseInt(req.body.domicile_location_id),
+        id_card_location_id: parseInt(req.body.id_card_location_id),
+      };
+      console.log("DEBUG: Creating User with data:", data);
+      await registerUser(data);
       res.status(201).send("User registered successfully");
     } catch (error: any) {
+      console.error("Error in POST /profile/user:", error.message);
       res.status(400).json({ message: error.message });
     }
   }
@@ -111,7 +104,6 @@ router.get(
       const genderArray = Array.isArray(gender) ? gender : gender ? [gender] : undefined;
       const bloodTypeArray = Array.isArray(blood_type) ? blood_type : blood_type ? [blood_type] : undefined;
 
-      // Restrict to own data for users with "self" scope
       const fetchOptions: any = {
         page,
         limit,
@@ -126,9 +118,9 @@ router.get(
       };
 
       if (req.userScope === "self") {
-        fetchOptions.userId = req.user!.user_info_id; // Only fetch own data
+        fetchOptions.userId = req.user!.user_info_id;
       } else if (req.userScope === "wilayah") {
-        fetchOptions.userArea = req.userArea; // Filter by wilayah
+        fetchOptions.userArea = req.userArea;
       }
 
       const users = await fetchAllUsers(fetchOptions);
@@ -154,7 +146,6 @@ router.get(
       const userId = parseInt(req.params.id);
       const currentUserId = req.user!.user_info_id;
 
-      // Restrict to own data for "self" scope
       if (req.userScope === "self" && userId !== currentUserId) {
         res.status(403).json({ message: "Forbidden: Can only view own data" });
         return;
@@ -228,10 +219,9 @@ router.patch(
 router.delete(
   "/:id",
   authenticateJWT,
-  authorize({ feature: "umat", action: "delete", scope: "wilayah" }),
-  async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  authorize({ feature: "umat", action: "delete", scope: ["nasional", "wilayah"] }),
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      // Debug: Log user scope dan area
       console.log("=== DEBUG DELETE /user/:id ===");
       console.log("User Scope:", req.userScope);
       console.log("User Area:", req.userArea);
@@ -246,7 +236,6 @@ router.delete(
         return;
       }
 
-      // Check region untuk scope wilayah
       if (req.userScope === "wilayah") {
         const userArea = user.qiudao?.qiu_dao_location?.area as Korwil | undefined;
         console.log("Region check:", { userArea, reqUserArea: req.userArea });
