@@ -43,15 +43,8 @@ export const authorize = (required: PermissionCheck) => {
       }
 
       let hasAccess = false;
-      let userScope = "self"; // Default scope
+      let userScope = "self";
       let userArea: Korwil | undefined;
-
-      // Map roles to scopes
-      const roleToScope: Record<string, string> = {
-        user: "self",
-        admin: "wilayah",
-        "super admin": "nasional",
-      };
 
       for (const userRole of userRoles) {
         const roleName = userRole.role.name.toLowerCase();
@@ -63,12 +56,10 @@ export const authorize = (required: PermissionCheck) => {
           console.log(`Found permission for ${required.feature}.${required.action}`);
           hasAccess = true;
 
-          // Set scope based on role
-          const roleScope = roleToScope[roleName] || "self";
-          // Prioritize higher scope: nasional > wilayah > self
+          const roleScope = featurePerms.scope || "self";
           if (roleScope === "nasional" || (roleScope === "wilayah" && userScope !== "nasional") || (roleScope === "self" && userScope === "self")) {
             userScope = roleScope;
-            console.log(`Set userScope to ${userScope} from role ${roleName}`);
+            console.log(`Set userScope to ${userScope} from role ${roleName} permissions`);
           }
         } else {
           console.log(`No permission for ${required.feature}.${required.action} in role ${roleName}`);
@@ -83,7 +74,6 @@ export const authorize = (required: PermissionCheck) => {
         return;
       }
 
-      // Handle scope match: Support array of scopes
       const requiredScopes = Array.isArray(required.scope)
         ? required.scope
         : required.scope
@@ -99,11 +89,7 @@ export const authorize = (required: PermissionCheck) => {
       const user = await prisma.user.findUnique({
         where: { user_info_id: userId },
         include: {
-          qiudao: {
-            include: {
-              qiu_dao_location: true,
-            },
-          },
+          qiudao: { include: { qiu_dao_location: true } },
           domicile_location: true,
         },
       });
@@ -131,7 +117,7 @@ export const authorize = (required: PermissionCheck) => {
 
       next();
     } catch (error: any) {
-      console.error("Error in authorize:", error.message);
+      console.error("Error in authorize:", error.message, error.stack);
       res.status(500).json({ message: error.message });
       return;
     }

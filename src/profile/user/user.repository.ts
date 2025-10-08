@@ -1,6 +1,5 @@
 import prisma from "../../db";
 import { BloodType, Gender, Prisma, SpiritualStatus, User, UserCredential, Korwil, Role, UserRole } from "@prisma/client";
-import { UserWithRelations } from "../../types/user";
 
 export const findCredential = async (
   user_credential: number
@@ -177,7 +176,7 @@ interface PaginatedUserOptions {
   gender?: string | string[];
   blood_type?: string | string[];
   userArea?: Korwil;
-  userId?: number; // Add userId for self scope
+  userId?: number;
 }
 
 function buildLocationFilter(
@@ -272,7 +271,6 @@ export const getUsersPaginated = async ({
 
   let where: Prisma.UserWhereInput = {};
 
-  // Handle undefined searchField by defaulting to "full_name"
   const effectiveSearchField = searchField ?? "full_name";
 
   if (nestedFields[effectiveSearchField] && search) {
@@ -306,7 +304,6 @@ export const getUsersPaginated = async ({
 
   const combinedFilter: Prisma.UserWhereInput = {};
 
-  // Add userId filter for self scope
   if (userId) {
     combinedFilter.user_info_id = { equals: userId };
   }

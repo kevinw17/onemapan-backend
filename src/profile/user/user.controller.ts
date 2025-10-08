@@ -5,7 +5,6 @@ import {
   getUserById,
   updateUserById,
   deleteUserById,
-  updateOwnProfile,
 } from "./user.service";
 import { authenticateJWT } from "../../middleware/authentication";
 import { authorize } from "../../middleware/authorization";
