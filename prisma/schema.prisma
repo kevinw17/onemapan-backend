@@ -219,6 +219,7 @@ model Event {
   is_recurring          Boolean
   description           String?      @db.VarChar(1000)
   poster_s3_bucket_link String?      @db.VarChar(250)
+  area                  Korwil?
   created_at            DateTime?    @default(now())
   updated_at            DateTime?    @updatedAt
   occurrences           Occurrence[]

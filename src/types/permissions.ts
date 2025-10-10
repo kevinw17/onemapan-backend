@@ -1,10 +1,17 @@
 // types/permissions.ts
 export interface Permissions {
     umat?: {
-        create?: boolean;
         read?: boolean;
+        create?: boolean;
         update?: boolean;
         delete?: boolean;
-        scope?: "nasional" | "wilayah" | "self";
+        scope?: "self" | "wilayah" | "nasional";
+    };
+    qiudao?: {
+        read?: boolean;
+        create?: boolean;
+        update?: boolean;
+        delete?: boolean;
+        scope?: "self" | "wilayah" | "nasional";
     };
 }

@@ -6,12 +6,11 @@ import {
   updateUserById,
   deleteUserById,
 } from "./user.service";
-import { authenticateJWT } from "../../middleware/authentication";
+import { authenticateJWT, JwtPayload } from "../../middleware/authentication";
 import { authorize } from "../../middleware/authorization";
-import { Korwil, Prisma, User } from "@prisma/client";
+import { Korwil } from "@prisma/client";
 import prisma from "../../db";
 import { UserWithRelations } from "../../types/user";
-import { JwtPayload } from "../../types/express";
 
 interface AuthRequest extends Request {
   user?: JwtPayload;
@@ -21,11 +20,12 @@ interface AuthRequest extends Request {
 
 const router = express.Router();
 
+// Create User
 router.post(
   "/",
   authenticateJWT,
   authorize({ feature: "umat", action: "create", scope: "wilayah" }),
-  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
       console.log("=== DEBUG POST /profile/user ===");
       console.log("userScope:", req.userScope);
@@ -72,13 +72,14 @@ router.post(
   }
 );
 
+// Get all Users (filtered by scope)
 router.get(
   "/",
   authenticateJWT,
   authorize({ feature: "umat", action: "read" }),
-  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
-      console.log("=== DEBUG GET /users ===");
+      console.log("=== DEBUG GET /profile/user ===");
       console.log("User:", req.user);
       console.log("Scope:", req.userScope);
       console.log("Area:", req.userArea);
@@ -89,12 +90,12 @@ router.get(
       const search = (req.query.search as string) || "";
       const searchField = (req.query.searchField as string) || "full_name";
 
-      const spiritualStatus = req.queryParsed?.spiritualStatus as string[] | string | undefined || req.query.spiritualStatus as string[] | string | undefined;
-      const job_name = req.queryParsed?.job_name as string[] | string | undefined || req.query.job_name as string[] | string | undefined;
-      const last_education_level = req.queryParsed?.last_education_level as string[] | string | undefined || req.query.last_education_level as string[] | string | undefined;
-      const is_qing_kou = req.queryParsed?.is_qing_kou as string[] | string | undefined || req.query.is_qing_kou as string[] | string | undefined;
-      const gender = req.queryParsed?.gender as string[] | string | undefined || req.query.gender as string[] | string | undefined;
-      const blood_type = req.queryParsed?.blood_type as string[] | string | undefined || req.query.blood_type as string[] | string | undefined;
+      const spiritualStatus = req.query.spiritualStatus as string[] | string | undefined;
+      const job_name = req.query.job_name as string[] | string | undefined;
+      const last_education_level = req.query.last_education_level as string[] | string | undefined;
+      const is_qing_kou = req.query.is_qing_kou as string[] | string | undefined;
+      const gender = req.query.gender as string[] | string | undefined;
+      const blood_type = req.query.blood_type as string[] | string | undefined;
 
       const spiritualStatusArray = Array.isArray(spiritualStatus) ? spiritualStatus : spiritualStatus ? [spiritualStatus] : undefined;
       const jobNameArray = Array.isArray(job_name) ? job_name : job_name ? [job_name] : undefined;
@@ -114,13 +115,9 @@ router.get(
         is_qing_kou: qingKouArray,
         gender: genderArray,
         blood_type: bloodTypeArray,
+        area: req.userScope === "wilayah" ? req.userArea : undefined,
+        userId: req.userScope === "self" && req.userRole !== "user" ? req.user!.user_info_id : undefined, // Exclude userId filter for role User
       };
-
-      if (req.userScope === "self") {
-        fetchOptions.userId = req.user!.user_info_id;
-      } else if (req.userScope === "wilayah") {
-        fetchOptions.userArea = req.userArea;
-      }
 
       const users = await fetchAllUsers(fetchOptions);
 
@@ -130,24 +127,27 @@ router.get(
 
       res.status(200).json(users);
     } catch (error: any) {
-      console.error("Error in GET /users:", error.message);
+      console.error("Error in GET /profile/user:", error.message);
       res.status(500).json({ message: error.message });
     }
   }
 );
 
+// Get User by ID
 router.get(
   "/:id",
   authenticateJWT,
   authorize({ feature: "umat", action: "read" }),
-  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
       const userId = parseInt(req.params.id);
       const currentUserId = req.user!.user_info_id;
 
-      if (req.userScope === "self" && userId !== currentUserId) {
-        res.status(403).json({ message: "Forbidden: Can only view own data" });
-        return;
+      if (req.userScope === "self" && req.userRole !== "user") {
+        if (userId !== currentUserId) {
+          res.status(403).json({ message: "Forbidden: Can only view own data" });
+          return;
+        }
       }
 
       const user = await getUserById(userId) as UserWithRelations | null;
@@ -172,11 +172,12 @@ router.get(
   }
 );
 
+// Update and Delete routes tetap sama
 router.patch(
   "/:id",
   authenticateJWT,
   authorize({ feature: "umat", action: "update" }),
-  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
       const userId = parseInt(req.params.id);
       const currentUserId = req.user!.user_info_id;
@@ -219,9 +220,9 @@ router.delete(
   "/:id",
   authenticateJWT,
   authorize({ feature: "umat", action: "delete", scope: ["nasional", "wilayah"] }),
-  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
-      console.log("=== DEBUG DELETE /user/:id ===");
+      console.log("=== DEBUG DELETE /profile/user/:id ===");
       console.log("User Scope:", req.userScope);
       console.log("User Area:", req.userArea);
       console.log("User JWT:", req.user);

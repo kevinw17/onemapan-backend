@@ -178,6 +178,7 @@ export const createNewEvent = async (input: CreateEventInput): Promise<EventWith
         description: input.description,
         poster_s3_bucket_link: input.poster_s3_bucket_link,
         occurrences: input.occurrences,
+        area: null
     });
 };
 

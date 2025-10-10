@@ -1,5 +1,4 @@
-// login.service.ts
-import { UserCredential, User } from "@prisma/client";
+import { UserCredential, User, Korwil } from "@prisma/client";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { findUserByUsername, updateLastLoggedIn } from "./login.repository";
@@ -18,7 +17,7 @@ interface LoginResult {
     user_info_id?: number;
     scope?: string;
     role?: string;
-    area?: string | null; // Matches Korwil enum values or null
+    area?: string | null;
   };
 }
 
@@ -56,7 +55,7 @@ export const loginUser = async ({ username, password }: LoginInput): Promise<Log
       userRoles: { include: { role: true } },
       qiudao: {
         include: {
-          qiu_dao_location: true, // Include Fotang to get area
+          qiu_dao_location: true,
         },
       },
     },
@@ -68,7 +67,6 @@ export const loginUser = async ({ username, password }: LoginInput): Promise<Log
     throw error;
   }
 
-  // Log user roles and permissions for debugging
   console.log("=== DEBUG LOGIN ===");
   console.log("User Info:", {
     user_info_id: userInfo.user_info_id,
@@ -80,29 +78,42 @@ export const loginUser = async ({ username, password }: LoginInput): Promise<Log
     fotang_area: userInfo.qiudao?.qiu_dao_location?.area || null,
   });
 
-  // Determine role and scope
-  const primaryRole = userInfo.userRoles[0]?.role.name || "User"; // Default to "User" if no roles
-  let scope: string;
+  const primaryRole = userInfo.userRoles[0]?.role.name || "User";
+  let scope: string = "self";
   let area: string | null = null;
 
-  if (primaryRole === "User") {
+  // Normalkan role untuk konsistensi
+  const normalizedRole = primaryRole.toLowerCase().replace(/\s+/g, "");
+  console.log("DEBUG: Raw role from DB:", primaryRole);
+  console.log("DEBUG: Normalized role:", normalizedRole);
+
+  // Hardcode untuk superadmin: selalu nasional, tanpa cek permission
+  if (normalizedRole === "superadmin") {
+    scope = "nasional";
+    area = null; // Super admin tidak terikat area
+    console.log("Super admin detected: forcing scope to nasional");
+  } else if (primaryRole === "User") {
     scope = "self";
   } else {
+    // Untuk role lain, cek permission qiudao.scope
     scope = userInfo.userRoles.some((ur) => {
-      const permissions = ur.role.permissions as unknown as Permissions | null;
-      return permissions?.umat?.scope === "nasional";
+      const permissions = ur.role.permissions as Permissions | null;
+      return permissions?.qiudao?.scope === "nasional";
     })
       ? "nasional"
       : userInfo.userRoles.some((ur) => {
-          const permissions = ur.role.permissions as unknown as Permissions | null;
-          return permissions?.umat?.scope === "wilayah";
+          const permissions = ur.role.permissions as Permissions | null;
+          return permissions?.qiudao?.scope === "wilayah";
         })
       ? "wilayah"
       : "self";
 
-    // Set area for wilayah scope from Fotang
     if (scope === "wilayah" && userInfo.qiudao?.qiu_dao_location) {
-      area = userInfo.qiudao.qiu_dao_location.area; // e.g., "Korwil_1"
+      area = userInfo.qiudao.qiu_dao_location.area;
+      if (!Object.values(Korwil).includes(area as Korwil)) {
+        console.warn(`Invalid area value: ${area}`);
+        area = null;
+      }
     }
   }
 
@@ -114,6 +125,7 @@ export const loginUser = async ({ username, password }: LoginInput): Promise<Log
       username: user.username,
       user_info_id: userInfo.user_info_id,
       role: primaryRole,
+      normalizedRole, // Tambahkan normalizedRole ke token
       scope,
       area,
     },
@@ -128,11 +140,11 @@ export const loginUser = async ({ username, password }: LoginInput): Promise<Log
     username: user.username,
     user_info_id: userInfo.user_info_id,
     role: primaryRole,
+    normalizedRole,
     scope,
     area,
   });
 
-  // Update last logged in
   await updateLastLoggedIn(user.user_credential);
 
   return {
