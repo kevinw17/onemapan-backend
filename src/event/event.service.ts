@@ -1,4 +1,4 @@
-import { Event, Occurrence, EventType, Location } from "@prisma/client";
+import { Event, Occurrence, EventType, Location, Korwil } from "@prisma/client";
 import {
     getAllEvents,
     getEventById,
@@ -9,7 +9,6 @@ import {
     getEventsFiltered,
 } from "./event.repository";
 
-// Define the type for Event with relations
 type EventWithRelations = Event & {
     location: Location;
     occurrences: Occurrence[];
@@ -39,6 +38,7 @@ interface CreateEventInput {
     description: string | null;
     poster_s3_bucket_link: string | null;
     occurrences: { greg_occur_date: Date; greg_end_date?: Date | null }[];
+    area: Korwil | null;
 }
 
 interface UpdateEventInput {
@@ -66,11 +66,15 @@ interface UpdateEventInput {
     description?: string | null;
     poster_s3_bucket_link?: string | null;
     occurrences?: { greg_occur_date: Date; greg_end_date?: Date | null }[];
+    area?: Korwil | null;
 }
 
 interface FilterEventsInput {
     event_type?: EventType | EventType[];
     provinceId?: number | number[];
+    area?: Korwil | Korwil[] | null;
+    startDate?: string;
+    endDate?: string;
 }
 
 export const getEvents = async (): Promise<EventWithRelations[]> => {
@@ -78,9 +82,8 @@ export const getEvents = async (): Promise<EventWithRelations[]> => {
 };
 
 export const getFilteredEvents = async (input: FilterEventsInput): Promise<EventWithRelations[]> => {
-    const { event_type, provinceId } = input;
+    const { event_type, provinceId, area, startDate, endDate } = input;
 
-    // Validate event_type
     const validEventTypes = [
         "Regular",
         "Hari_Besar",
@@ -103,7 +106,6 @@ export const getFilteredEvents = async (input: FilterEventsInput): Promise<Event
         }
     }
 
-    // Validate provinceId
     if (provinceId) {
         const provinceIds = Array.isArray(provinceId) ? provinceId : [provinceId];
         if (!provinceIds.every(id => Number.isInteger(id) && id > 0)) {
@@ -113,9 +115,27 @@ export const getFilteredEvents = async (input: FilterEventsInput): Promise<Event
         }
     }
 
+    if (area !== undefined && area !== null) {
+        const validAreas = ["Korwil_1", "Korwil_2", "Korwil_3", "Korwil_4", "Korwil_5", "Korwil_6"];
+        if (Array.isArray(area)) {
+            if (!area.every(a => validAreas.includes(a))) {
+                const error = new Error("Invalid area provided");
+                (error as any).statusCode = 400;
+                throw error;
+            }
+        } else if (!validAreas.includes(area)) {
+            const error = new Error("Invalid area provided");
+            (error as any).statusCode = 400;
+            throw error;
+        }
+    }
+
     return await getEventsFiltered({
         event_type,
         provinceId,
+        area,
+        startDate,
+        endDate,
     });
 };
 
@@ -144,6 +164,14 @@ export const createNewEvent = async (input: CreateEventInput): Promise<EventWith
         const error = new Error("ProvinceId, cityId, dan districtId wajib diisi");
         (error as any).statusCode = 400;
         throw error;
+    }
+    if (input.area !== null) {
+        const validAreas = ["Korwil_1", "Korwil_2", "Korwil_3", "Korwil_4", "Korwil_5", "Korwil_6"];
+        if (!validAreas.includes(input.area)) {
+            const error = new Error("Area tidak valid. Harus salah satu dari: " + validAreas.join(", ") + " atau null untuk Nasional");
+            (error as any).statusCode = 400;
+            throw error;
+        }
     }
     // Validate greg_end_date is after greg_occur_date
     for (const occ of input.occurrences) {
@@ -178,7 +206,7 @@ export const createNewEvent = async (input: CreateEventInput): Promise<EventWith
         description: input.description,
         poster_s3_bucket_link: input.poster_s3_bucket_link,
         occurrences: input.occurrences,
-        area: null
+        area: input.area, // Kirim area
     });
 };
 
@@ -193,6 +221,14 @@ export const updateExistingEvent = async (eventId: number, input: UpdateEventInp
         const error = new Error("ProvinceId, cityId, districtId, dan localityId wajib diisi jika locationData disediakan");
         (error as any).statusCode = 400;
         throw error;
+    }
+    if (input.area !== undefined) {
+        const validAreas = ["Korwil_1", "Korwil_2", "Korwil_3", "Korwil_4", "Korwil_5", "Korwil_6"];
+        if (input.area !== null && !validAreas.includes(input.area)) {
+            const error = new Error("Area tidak valid. Harus salah satu dari: " + validAreas.join(", ") + " atau null untuk Nasional");
+            (error as any).statusCode = 400;
+            throw error;
+        }
     }
     // Validate greg_end_date is after greg_occur_date
     if (input.occurrences) {

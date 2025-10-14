@@ -85,6 +85,12 @@ router.get(
       console.log("Area:", req.userArea);
       console.log("Query Params:", req.query);
 
+      if (!req.user) {
+        console.error("No user found in request after authentication");
+        res.status(401).json({ message: "Unauthorized: No user data available" });
+        return;
+      }
+
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 10;
       const search = (req.query.search as string) || "";
@@ -104,7 +110,17 @@ router.get(
       const genderArray = Array.isArray(gender) ? gender : gender ? [gender] : undefined;
       const bloodTypeArray = Array.isArray(blood_type) ? blood_type : blood_type ? [blood_type] : undefined;
 
-      const fetchOptions: any = {
+      let userArea: Korwil | undefined;
+      if (req.userScope === "wilayah" && req.userArea) {
+        userArea = req.userArea;
+      } else if (req.user.role !== "Super Admin" && req.user.area) {
+        userArea = req.user.area as Korwil;
+        console.warn("Using req.user.area as fallback due to unexpected userScope:", req.userScope);
+      } else {
+        console.log("No area filter applied (Super Admin or no area specified)");
+      }
+
+      const fetchOptions = {
         page,
         limit,
         search,
@@ -115,13 +131,13 @@ router.get(
         is_qing_kou: qingKouArray,
         gender: genderArray,
         blood_type: bloodTypeArray,
-        area: req.userScope === "wilayah" ? req.userArea : undefined,
-        userId: req.userScope === "self" && req.userRole !== "user" ? req.user!.user_info_id : undefined, // Exclude userId filter for role User
+        userArea,
+        userId: req.userScope === "self" && req.user.role !== "user" ? req.user.user_info_id : undefined,
       };
 
-      const users = await fetchAllUsers(fetchOptions);
+      console.log("Fetch Options:", fetchOptions);
 
-      console.log("Fetched Users:", users.data);
+      const users = await fetchAllUsers(fetchOptions);
       console.log("Total Users:", users.total);
       console.log("=== DEBUG END ===");
 
@@ -143,7 +159,7 @@ router.get(
       const userId = parseInt(req.params.id);
       const currentUserId = req.user!.user_info_id;
 
-      if (req.userScope === "self" && req.userRole !== "user") {
+      if (req.userScope === "self" && req.user!.role !== "user") {
         if (userId !== currentUserId) {
           res.status(403).json({ message: "Forbidden: Can only view own data" });
           return;
@@ -157,9 +173,20 @@ router.get(
         return;
       }
 
-      if (req.userScope === "wilayah") {
-        const userArea = user.qiudao?.qiu_dao_location?.area;
-        if (userArea !== req.userArea) {
+      console.log("DEBUG: User Data:", {
+        userId: user.user_info_id,
+        full_name: user.full_name,
+        qiudao: user.qiudao ? {
+          qiu_dao_id: user.qiudao.qiu_dao_id,
+          qiu_dao_location: user.qiudao.qiu_dao_location ? { area: user.qiudao.qiu_dao_location.area } : null,
+        } : null,
+        area: user.area,
+      });
+
+      if (req.userScope === "wilayah" && req.userArea) {
+        const userArea = user.area || user.qiudao?.qiu_dao_location?.area;
+        if (userArea && userArea !== req.userArea) {
+          console.warn("Region mismatch:", { userArea, reqUserArea: req.userArea });
           res.status(403).json({ message: "Forbidden: User dari wilayah lain" });
           return;
         }
@@ -167,12 +194,13 @@ router.get(
 
       res.status(200).json(user);
     } catch (error: any) {
+      console.error("Error in GET /profile/user/:id:", error.message);
       res.status(500).json({ message: error.message });
     }
   }
 );
 
-// Update and Delete routes tetap sama
+// Update User
 router.patch(
   "/:id",
   authenticateJWT,
@@ -192,14 +220,26 @@ router.patch(
       }
 
       const user = await getUserById(userId) as UserWithRelations | null;
+
       if (!user) {
         res.status(404).json({ message: "User tidak ditemukan" });
         return;
       }
 
-      if (req.userScope === "wilayah") {
-        const userArea = user.qiudao?.qiu_dao_location?.area;
-        if (userArea !== req.userArea) {
+      console.log("DEBUG: User Data for Update:", {
+        userId: user.user_info_id,
+        full_name: user.full_name,
+        qiudao: user.qiudao ? {
+          qiu_dao_id: user.qiudao.qiu_dao_id,
+          qiu_dao_location: user.qiudao.qiu_dao_location ? { area: user.qiudao.qiu_dao_location.area } : null,
+        } : null,
+        area: user.area,
+      });
+
+      if (req.userScope === "wilayah" && req.userArea) {
+        const userArea = user.area || user.qiudao?.qiu_dao_location?.area;
+        if (userArea && userArea !== req.userArea) {
+          console.warn("Region mismatch for update:", { userArea, reqUserArea: req.userArea });
           res.status(403).json({ message: "Forbidden: Cannot update user from different region" });
           return;
         }
@@ -211,11 +251,13 @@ router.patch(
         data: updatedUser,
       });
     } catch (error: any) {
+      console.error("Error in PATCH /profile/user/:id:", error.message);
       res.status(500).json({ message: error.message });
     }
   }
 );
 
+// Delete User
 router.delete(
   "/:id",
   authenticateJWT,
@@ -236,10 +278,19 @@ router.delete(
         return;
       }
 
-      if (req.userScope === "wilayah") {
-        const userArea = user.qiudao?.qiu_dao_location?.area as Korwil | undefined;
-        console.log("Region check:", { userArea, reqUserArea: req.userArea });
-        if (userArea !== req.userArea) {
+      console.log("DEBUG: User Data for Delete:", {
+        userId: user.user_info_id,
+        full_name: user.full_name,
+        qiudao: user.qiudao ? {
+          qiu_dao_id: user.qiudao.qiu_dao_id,
+          qiu_dao_location: user.qiudao.qiu_dao_location ? { area: user.qiudao.qiu_dao_location.area } : null,
+        } : null,
+        area: user.area,
+      });
+
+      if (req.userScope === "wilayah" && req.userArea) {
+        const userArea = user.area || user.qiudao?.qiu_dao_location?.area;
+        if (userArea && userArea !== req.userArea) {
           console.log("Region mismatch:", { userArea, reqUserArea: req.userArea });
           res.status(403).json({ message: "Forbidden: Cannot delete user from different region" });
           return;

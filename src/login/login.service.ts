@@ -23,30 +23,22 @@ interface LoginResult {
 
 export const loginUser = async ({ username, password }: LoginInput): Promise<LoginResult> => {
   if (!username || !password) {
-    const error = new Error("Username dan password wajib diisi");
-    (error as any).statusCode = 400;
-    throw error;
+    throw new Error("Username dan password wajib diisi");
   }
 
   const user = await findUserByUsername(username);
 
   if (!user) {
-    const error = new Error("User tidak ditemukan");
-    (error as any).statusCode = 400;
-    throw error;
+    throw new Error("User tidak ditemukan");
   }
 
   if (!user.username || user.user_credential == null || user.hashed_password == null) {
-    const error = new Error("Data user tidak valid");
-    (error as any).statusCode = 500;
-    throw error;
+    throw new Error("Data user tidak valid");
   }
 
   const isPasswordValid = await bcrypt.compare(password, user.hashed_password);
   if (!isPasswordValid) {
-    const error = new Error("Password salah");
-    (error as any).statusCode = 400;
-    throw error;
+    throw new Error("Password salah");
   }
 
   const userInfo = await prisma.user.findFirst({
@@ -62,9 +54,7 @@ export const loginUser = async ({ username, password }: LoginInput): Promise<Log
   });
 
   if (!userInfo) {
-    const error = new Error("Data user tidak lengkap");
-    (error as any).statusCode = 500;
-    throw error;
+    throw new Error("Data user tidak lengkap");
   }
 
   console.log("=== DEBUG LOGIN ===");
@@ -92,10 +82,17 @@ export const loginUser = async ({ username, password }: LoginInput): Promise<Log
     scope = "nasional";
     area = null; // Super admin tidak terikat area
     console.log("Super admin detected: forcing scope to nasional");
-  } else if (primaryRole === "User") {
-    scope = "self";
   } else {
-    // Untuk role lain, cek permission qiudao.scope
+    // Untuk User dan role lain (misalnya, Admin), ambil area dari qiudao jika ada
+    if (userInfo.qiudao?.qiu_dao_location) {
+      area = userInfo.qiudao.qiu_dao_location.area;
+      if (!Object.values(Korwil).includes(area as Korwil)) {
+        console.warn(`Invalid area value for user ${username}: ${area}`);
+        area = null;
+      }
+    }
+
+    // Tentukan scope berdasarkan permissions
     scope = userInfo.userRoles.some((ur) => {
       const permissions = ur.role.permissions as Permissions | null;
       return permissions?.qiudao?.scope === "nasional";
@@ -108,12 +105,17 @@ export const loginUser = async ({ username, password }: LoginInput): Promise<Log
       ? "wilayah"
       : "self";
 
-    if (scope === "wilayah" && userInfo.qiudao?.qiu_dao_location) {
-      area = userInfo.qiudao.qiu_dao_location.area;
-      if (!Object.values(Korwil).includes(area as Korwil)) {
-        console.warn(`Invalid area value: ${area}`);
-        area = null;
-      }
+    // Untuk role "User", override scope ke "self" untuk data Qiudao, tetapi tetap gunakan area untuk event visibility
+    if (primaryRole === "User") {
+      scope = "self";
+    }
+
+    // Validasi bahwa non-Super Admin harus memiliki area yang valid jika scope "wilayah"
+    if (normalizedRole !== "superadmin" && scope === "wilayah" && !area) {
+      console.warn(`User ${username} (role: ${primaryRole}) has no valid area defined`);
+      const error = new Error("Wilayah pengguna tidak didefinisikan");
+      (error as any).statusCode = 400;
+      throw error;
     }
   }
 
@@ -125,7 +127,7 @@ export const loginUser = async ({ username, password }: LoginInput): Promise<Log
       username: user.username,
       user_info_id: userInfo.user_info_id,
       role: primaryRole,
-      normalizedRole, // Tambahkan normalizedRole ke token
+      normalizedRole,
       scope,
       area,
     },

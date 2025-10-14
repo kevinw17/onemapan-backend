@@ -1,6 +1,14 @@
 import prisma from "../../db";
 import { BloodType, Gender, Prisma, SpiritualStatus, User, UserCredential, Korwil, Role, UserRole } from "@prisma/client";
 
+// Define a type for QiuDao to include all relevant fields
+type QiuDaoWithIncludes = {
+  qiu_dao_id: number;
+  qiu_dao_location_id?: number | null;
+  qiu_dao_location?: { area: Korwil } | null;
+  // Add other QiuDao fields as needed
+};
+
 export const findCredential = async (
   user_credential: number
 ): Promise<UserCredential | null> => {
@@ -57,8 +65,8 @@ export const getAllUsers = async (): Promise<User[]> => {
   });
 };
 
-type UserWithIncludes = User & {
-  qiudao?: { qiu_dao_location?: { area: Korwil } };
+export type UserWithIncludes = User & {
+  qiudao?: QiuDaoWithIncludes;
   id_card_location?: any;
   domicile_location?: any;
   userCredential?: any;
