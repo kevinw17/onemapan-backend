@@ -104,6 +104,7 @@ router.get("/", authenticateJWT, async (req: AuthRequest, res: Response) => {
             event_id: event.event_id,
             event_name: event.event_name,
             area: event.area,
+            is_recurring: event.is_recurring,
         })));
         res.status(200).json(filteredEvents);
     } catch (error: any) {
@@ -116,7 +117,7 @@ router.get("/", authenticateJWT, async (req: AuthRequest, res: Response) => {
 router.get("/filtered", authenticateJWT, async (req: AuthRequest, res: Response) => {
     try {
         console.log("DEBUG: GET /events/filtered, user:", { role: req.user!.role, area: req.user!.area }, "query:", req.query);
-        const { event_type, provinceId, area, startDate, endDate } = req.query;
+        const { event_type, area, is_recurring, startDate, endDate } = req.query;
 
         const validEventTypes = [
             "Regular",
@@ -146,32 +147,6 @@ router.get("/filtered", authenticateJWT, async (req: AuthRequest, res: Response)
                 eventTypeParam = eventTypes;
             } else {
                 throw new Error("Format event_type tidak valid");
-            }
-        }
-
-        let provinceIdParam: number | number[] | undefined;
-        if (provinceId) {
-            if (typeof provinceId === "string") {
-                const ids = provinceId
-                    .split(",")
-                    .map(id => parseInt(id))
-                    .filter(id => !isNaN(id) && id > 0);
-                provinceIdParam = ids.length === 1 ? ids[0] : ids;
-            } else if (Array.isArray(provinceId)) {
-                const ids = provinceId
-                    .map(id => parseInt(id.toString()))
-                    .filter(id => !isNaN(id) && id > 0);
-                if (ids.length === 0) {
-                    throw new Error("provinceId tidak valid");
-                }
-                provinceIdParam = ids;
-            } else {
-                const id = parseInt(provinceId.toString());
-                if (!isNaN(id) && id > 0) {
-                    provinceIdParam = id;
-                } else {
-                    throw new Error("provinceId tidak valid");
-                }
             }
         }
 
@@ -214,12 +189,36 @@ router.get("/filtered", authenticateJWT, async (req: AuthRequest, res: Response)
             }
         }
 
-        console.log("DEBUG: Final Filter Params:", { event_type: eventTypeParam, provinceId: provinceIdParam, area: areaParam, startDate, endDate });
+        let isRecurringParam: boolean | boolean[] | undefined;
+        if (is_recurring !== undefined) {
+            if (typeof is_recurring === "string") {
+                const values = is_recurring
+                    .split(",")
+                    .map(val => val.trim().toLowerCase() === "true" || val.trim().toLowerCase() === "false" ? val.trim().toLowerCase() === "true" : null)
+                    .filter((val): val is boolean => val !== null);
+                if (values.length === 0) {
+                    throw new Error("is_recurring tidak valid");
+                }
+                isRecurringParam = values.length === 1 ? values[0] : values;
+            } else if (Array.isArray(is_recurring)) {
+                const values = is_recurring
+                    .map(val => typeof val === "string" ? (val.trim().toLowerCase() === "true" || val.trim().toLowerCase() === "false" ? val.trim().toLowerCase() === "true" : null) : null)
+                    .filter((val): val is boolean => val !== null);
+                if (values.length === 0) {
+                    throw new Error("is_recurring tidak valid");
+                }
+                isRecurringParam = values;
+            } else {
+                throw new Error("Format is_recurring tidak valid");
+            }
+        }
+
+        console.log("DEBUG: Final Filter Params:", { event_type: eventTypeParam, area: areaParam, is_recurring: isRecurringParam, startDate, endDate });
 
         const events = await getFilteredEvents({
             event_type: eventTypeParam,
-            provinceId: provinceIdParam,
             area: areaParam,
+            is_recurring: isRecurringParam,
             startDate: startDate ? startDate.toString() : undefined,
             endDate: endDate ? endDate.toString() : undefined,
         });
@@ -228,6 +227,7 @@ router.get("/filtered", authenticateJWT, async (req: AuthRequest, res: Response)
             event_id: event.event_id,
             event_name: event.event_name,
             area: event.area,
+            is_recurring: event.is_recurring,
         })));
 
         res.status(200).json(events);

@@ -71,8 +71,8 @@ interface UpdateEventInput {
 
 interface FilterEventsInput {
     event_type?: EventType | EventType[];
-    provinceId?: number | number[];
     area?: Korwil | Korwil[] | null;
+    is_recurring?: boolean | boolean[];
     startDate?: string;
     endDate?: string;
 }
@@ -82,7 +82,7 @@ export const getEvents = async (): Promise<EventWithRelations[]> => {
 };
 
 export const getFilteredEvents = async (input: FilterEventsInput): Promise<EventWithRelations[]> => {
-    const { event_type, provinceId, area, startDate, endDate } = input;
+    const { event_type, area, is_recurring, startDate, endDate } = input;
 
     const validEventTypes = [
         "Regular",
@@ -106,15 +106,6 @@ export const getFilteredEvents = async (input: FilterEventsInput): Promise<Event
         }
     }
 
-    if (provinceId) {
-        const provinceIds = Array.isArray(provinceId) ? provinceId : [provinceId];
-        if (!provinceIds.every(id => Number.isInteger(id) && id > 0)) {
-            const error = new Error("Invalid provinceId provided");
-            (error as any).statusCode = 400;
-            throw error;
-        }
-    }
-
     if (area !== undefined && area !== null) {
         const validAreas = ["Korwil_1", "Korwil_2", "Korwil_3", "Korwil_4", "Korwil_5", "Korwil_6"];
         if (Array.isArray(area)) {
@@ -130,10 +121,24 @@ export const getFilteredEvents = async (input: FilterEventsInput): Promise<Event
         }
     }
 
+    if (is_recurring !== undefined) {
+        if (Array.isArray(is_recurring)) {
+            if (!is_recurring.every(val => typeof val === "boolean")) {
+                const error = new Error("Invalid is_recurring provided");
+                (error as any).statusCode = 400;
+                throw error;
+            }
+        } else if (typeof is_recurring !== "boolean") {
+            const error = new Error("Invalid is_recurring provided");
+            (error as any).statusCode = 400;
+            throw error;
+        }
+    }
+
     return await getEventsFiltered({
         event_type,
-        provinceId,
         area,
+        is_recurring,
         startDate,
         endDate,
     });
@@ -206,7 +211,7 @@ export const createNewEvent = async (input: CreateEventInput): Promise<EventWith
         description: input.description,
         poster_s3_bucket_link: input.poster_s3_bucket_link,
         occurrences: input.occurrences,
-        area: input.area, // Kirim area
+        area: input.area,
     });
 };
 

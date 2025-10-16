@@ -28,8 +28,8 @@ type UpdateEventInput = Partial<Omit<Event, "event_id" | "created_at" | "updated
 
 interface FilteredEventsOptions {
     event_type?: EventType | EventType[];
-    provinceId?: number | number[];
     area?: Korwil | Korwil[] | null;
+    is_recurring?: boolean | boolean[];
     startDate?: string;
     endDate?: string;
 }
@@ -61,12 +61,12 @@ export const getAllEvents = async (): Promise<EventWithRelations[]> => {
 
 export const getEventsFiltered = async ({
     event_type,
-    provinceId,
     area,
+    is_recurring,
     startDate,
     endDate,
 }: FilteredEventsOptions): Promise<EventWithRelations[]> => {
-    console.log("Received Filter Params:", { event_type, provinceId, area, startDate, endDate });
+    console.log("Received Filter Params:", { event_type, area, is_recurring, startDate, endDate });
 
     const where: Prisma.EventWhereInput = {};
 
@@ -79,43 +79,27 @@ export const getEventsFiltered = async ({
         }
     }
 
-    // Handle provinceId filter
-    if (provinceId) {
-        const provinceIds = Array.isArray(provinceId)
-            ? provinceId
-            : typeof provinceId === "number"
-            ? [provinceId]
-            : [];
-        if (provinceIds.length > 0) {
-            where.location = {
-                locality: {
-                    district: {
-                        city: {
-                            provinceId: { in: provinceIds },
-                        },
-                    },
-                },
-            };
-        }
-    }
-
     // Handle area filter
     if (area !== undefined) {
         if (area === null) {
             console.log("Filtering for national events (area: null)");
             where.area = { equals: null };
         } else if (Array.isArray(area) && area.length > 0) {
-            console.log(`Filtering for areas: ${area.join(", ")} or national events`);
-            where.OR = [
-                { area: { in: area } },
-                { area: { equals: null } }, // Always include national events
-            ];
-        } else if (typeof area === "string" && area.trim() !== "") {
-            console.log(`Filtering for area: ${area} or national events`);
-            where.OR = [
-                { area: { equals: area as Korwil } },
-                { area: { equals: null } }, // Always include national events
-            ];
+            // Filter out non-Korwil values and ensure only valid Korwil values remain
+            const areas = area.filter((a): a is Korwil => typeof a === "string" && a in Korwil);
+            if (areas.length > 0) {
+                console.log(`Filtering for areas: ${areas.join(", ")}`);
+                where.area = { in: areas };
+            } else {
+                console.log("No valid areas provided, returning empty result");
+                where.area = { in: [] }; // Return no events if no valid areas
+            }
+        } else if (typeof area === "string" && area in Korwil) {
+            console.log(`Filtering for area: ${area}`);
+            where.area = { equals: area as Korwil };
+        } else {
+            console.log("Invalid area provided, returning empty result");
+            where.area = { in: [] }; // Return no events for invalid area
         }
     } else {
         console.log("No area filter provided, including all areas and national events");
@@ -123,6 +107,25 @@ export const getEventsFiltered = async ({
             { area: { not: null } },
             { area: { equals: null } },
         ];
+    }
+
+    // Handle is_recurring filter
+    if (is_recurring !== undefined) {
+        if (Array.isArray(is_recurring) && is_recurring.length > 0) {
+            console.log(`Filtering for is_recurring: ${is_recurring.join(", ")}`);
+            where.OR = where.OR
+                ? [
+                      { AND: [where, { is_recurring: { equals: is_recurring[0] } }] },
+                      ...(is_recurring.slice(1).map(val => ({ AND: [where, { is_recurring: { equals: val } }] }))),
+                  ]
+                : [
+                      { is_recurring: { equals: is_recurring[0] } },
+                      ...(is_recurring.slice(1).map(val => ({ is_recurring: { equals: val } }))),
+                  ];
+        } else if (typeof is_recurring === "boolean") {
+            console.log(`Filtering for is_recurring: ${is_recurring}`);
+            where.is_recurring = { equals: is_recurring };
+        }
     }
 
     // Handle date range filter
@@ -167,6 +170,7 @@ export const getEventsFiltered = async ({
         event_id: event.event_id,
         event_name: event.event_name,
         area: event.area,
+        is_recurring: event.is_recurring,
     })));
 
     return events;
@@ -214,7 +218,7 @@ export const createEvent = async (data: CreateEventInput): Promise<EventWithRela
 
     return await prisma.$transaction(async (tx) => {
         // Validate required location fields
-        if (!data.locationData.provinceId || !data.locationData.cityId || !data.locationData.districtId || !data.locationData.localityId) {
+        if (!data.locationData.provinceId || !data.locationData.cityId || !data.locationData.districtId) {
             throw new Error("ProvinceId, cityId, districtId, and localityId are required");
         }
 
