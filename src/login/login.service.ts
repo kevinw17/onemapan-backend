@@ -57,42 +57,23 @@ export const loginUser = async ({ username, password }: LoginInput): Promise<Log
     throw new Error("Data user tidak lengkap");
   }
 
-  console.log("=== DEBUG LOGIN ===");
-  console.log("User Info:", {
-    user_info_id: userInfo.user_info_id,
-    username: user.username,
-    roles: userInfo.userRoles.map((ur) => ({
-      roleName: ur.role.name,
-      permissions: ur.role.permissions,
-    })),
-    fotang_area: userInfo.qiudao?.qiu_dao_location?.area || null,
-  });
-
   const primaryRole = userInfo.userRoles[0]?.role.name || "User";
   let scope: string = "self";
   let area: string | null = null;
 
-  // Normalkan role untuk konsistensi
   const normalizedRole = primaryRole.toLowerCase().replace(/\s+/g, "");
-  console.log("DEBUG: Raw role from DB:", primaryRole);
-  console.log("DEBUG: Normalized role:", normalizedRole);
 
-  // Hardcode untuk superadmin: selalu nasional, tanpa cek permission
   if (normalizedRole === "superadmin") {
     scope = "nasional";
-    area = null; // Super admin tidak terikat area
-    console.log("Super admin detected: forcing scope to nasional");
+    area = null;
   } else {
-    // Untuk User dan role lain (misalnya, Admin), ambil area dari qiudao jika ada
     if (userInfo.qiudao?.qiu_dao_location) {
       area = userInfo.qiudao.qiu_dao_location.area;
       if (!Object.values(Korwil).includes(area as Korwil)) {
-        console.warn(`Invalid area value for user ${username}: ${area}`);
         area = null;
       }
     }
 
-    // Tentukan scope berdasarkan permissions
     scope = userInfo.userRoles.some((ur) => {
       const permissions = ur.role.permissions as Permissions | null;
       return permissions?.qiudao?.scope === "nasional";
@@ -105,21 +86,16 @@ export const loginUser = async ({ username, password }: LoginInput): Promise<Log
       ? "wilayah"
       : "self";
 
-    // Untuk role "User", override scope ke "self" untuk data Qiudao, tetapi tetap gunakan area untuk event visibility
     if (primaryRole === "User") {
       scope = "self";
     }
 
-    // Validasi bahwa non-Super Admin harus memiliki area yang valid jika scope "wilayah"
     if (normalizedRole !== "superadmin" && scope === "wilayah" && !area) {
-      console.warn(`User ${username} (role: ${primaryRole}) has no valid area defined`);
       const error = new Error("Wilayah pengguna tidak didefinisikan");
       (error as any).statusCode = 400;
       throw error;
     }
   }
-
-  console.log("Assigned Scope:", scope, "Area:", area);
 
   const token = jwt.sign(
     {
@@ -136,16 +112,6 @@ export const loginUser = async ({ username, password }: LoginInput): Promise<Log
   );
 
   const { hashed_password, ...safeUserData } = user;
-
-  console.log("Generated JWT Payload:", {
-    credential_id: user.user_credential,
-    username: user.username,
-    user_info_id: userInfo.user_info_id,
-    role: primaryRole,
-    normalizedRole,
-    scope,
-    area,
-  });
 
   await updateLastLoggedIn(user.user_credential);
 

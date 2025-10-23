@@ -169,7 +169,6 @@ export const fetchAllUsers = async ({
   userArea,
   userId,
 }: FetchAllUsersOptions) => {
-  console.log("fetchAllUsers Input:", { page, limit, search, searchField, userArea, userId });
   const skip = (page - 1) * limit;
   const result = await getUsersPaginated({
     skip,
@@ -185,7 +184,6 @@ export const fetchAllUsers = async ({
     userArea,
     userId,
   });
-  console.log("fetchAllUsers Result:", result);
   return result;
 };
 

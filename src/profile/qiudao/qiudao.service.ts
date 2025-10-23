@@ -66,7 +66,7 @@ export const registerQiuDao = async (
     yin_shi_qd_mandarin_name,
     bao_shi_qd_name,
     bao_shi_qd_mandarin_name,
-    qiu_dao_card_s3_url: null, // Ubah dari qiu_dao_card_s3_url ke qiu_dao_card_s3_url jika nama field salah
+    qiu_dao_card_s3_url: null,
   });
 };
 
@@ -75,8 +75,8 @@ interface FetchAllQiudaoOptions {
   limit?: number;
   search?: string;
   searchField?: string;
-  area?: Korwil; // Ganti dari qiu_dao_location_id ke area (sesuai QiudaoPaginationOptions di repository)
-  userId?: number; // Opsional untuk self scope jika diperlukan
+  area?: Korwil; 
+  userId?: number;
 }
 
 export const fetchAllQiudao = async ({

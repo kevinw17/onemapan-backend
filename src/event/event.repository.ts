@@ -66,11 +66,8 @@ export const getEventsFiltered = async ({
     startDate,
     endDate,
 }: FilteredEventsOptions): Promise<EventWithRelations[]> => {
-    console.log("Received Filter Params:", { event_type, area, is_recurring, startDate, endDate });
-
     const where: Prisma.EventWhereInput = {};
 
-    // Handle event_type filter
     if (event_type) {
         if (Array.isArray(event_type) && event_type.length > 0) {
             where.event_type = { in: event_type };
@@ -79,56 +76,44 @@ export const getEventsFiltered = async ({
         }
     }
 
-    // Handle area filter
     if (area !== undefined) {
         if (area === null) {
-            console.log("Filtering for national events (area: null)");
             where.area = { equals: null };
         } else if (Array.isArray(area) && area.length > 0) {
-            // Filter out non-Korwil values and ensure only valid Korwil values remain
             const areas = area.filter((a): a is Korwil => typeof a === "string" && a in Korwil);
             if (areas.length > 0) {
-                console.log(`Filtering for areas: ${areas.join(", ")}`);
                 where.area = { in: areas };
             } else {
-                console.log("No valid areas provided, returning empty result");
-                where.area = { in: [] }; // Return no events if no valid areas
+                where.area = { in: [] };
             }
         } else if (typeof area === "string" && area in Korwil) {
-            console.log(`Filtering for area: ${area}`);
             where.area = { equals: area as Korwil };
         } else {
-            console.log("Invalid area provided, returning empty result");
-            where.area = { in: [] }; // Return no events for invalid area
+            where.area = { in: [] };
         }
     } else {
-        console.log("No area filter provided, including all areas and national events");
         where.OR = [
             { area: { not: null } },
             { area: { equals: null } },
         ];
     }
 
-    // Handle is_recurring filter
     if (is_recurring !== undefined) {
         if (Array.isArray(is_recurring) && is_recurring.length > 0) {
-            console.log(`Filtering for is_recurring: ${is_recurring.join(", ")}`);
             where.OR = where.OR
                 ? [
-                      { AND: [where, { is_recurring: { equals: is_recurring[0] } }] },
-                      ...(is_recurring.slice(1).map(val => ({ AND: [where, { is_recurring: { equals: val } }] }))),
-                  ]
+                    { AND: [where, { is_recurring: { equals: is_recurring[0] } }] },
+                    ...(is_recurring.slice(1).map(val => ({ AND: [where, { is_recurring: { equals: val } }] }))),
+                ]
                 : [
-                      { is_recurring: { equals: is_recurring[0] } },
-                      ...(is_recurring.slice(1).map(val => ({ is_recurring: { equals: val } }))),
-                  ];
+                    { is_recurring: { equals: is_recurring[0] } },
+                    ...(is_recurring.slice(1).map(val => ({ is_recurring: { equals: val } }))),
+                ];
         } else if (typeof is_recurring === "boolean") {
-            console.log(`Filtering for is_recurring: ${is_recurring}`);
             where.is_recurring = { equals: is_recurring };
         }
     }
 
-    // Handle date range filter
     if (startDate || endDate) {
         where.occurrences = {
             some: {
@@ -139,8 +124,6 @@ export const getEventsFiltered = async ({
             },
         };
     }
-
-    console.log("Where Clause:", JSON.stringify(where, null, 2));
 
     const events = await prisma.event.findMany({
         where,
@@ -165,13 +148,6 @@ export const getEventsFiltered = async ({
             occurrences: true,
         },
     });
-
-    console.log("Filtered Events:", events.map(event => ({
-        event_id: event.event_id,
-        event_name: event.event_name,
-        area: event.area,
-        is_recurring: event.is_recurring,
-    })));
 
     return events;
 };
@@ -203,13 +179,11 @@ export const getEventById = async (eventId: number): Promise<EventWithRelations 
 };
 
 export const createEvent = async (data: CreateEventInput): Promise<EventWithRelations> => {
-    // Validasi area
     const validAreas = ["Korwil_1", "Korwil_2", "Korwil_3", "Korwil_4", "Korwil_5", "Korwil_6"];
     if (data.area !== null && !validAreas.includes(data.area)) {
         throw new Error("Area tidak valid. Harus salah satu dari: " + validAreas.join(", ") + " atau null untuk Nasional");
     }
 
-    // Validate greg_end_date is after greg_occur_date for each occurrence
     for (const occ of data.occurrences) {
         if (occ.greg_end_date && occ.greg_end_date <= occ.greg_occur_date) {
             throw new Error("greg_end_date must be after greg_occur_date for each occurrence");
@@ -217,12 +191,10 @@ export const createEvent = async (data: CreateEventInput): Promise<EventWithRela
     }
 
     return await prisma.$transaction(async (tx) => {
-        // Validate required location fields
         if (!data.locationData.provinceId || !data.locationData.cityId || !data.locationData.districtId) {
             throw new Error("ProvinceId, cityId, districtId, and localityId are required");
         }
 
-        // Create Location record
         const newLocation = await tx.location.create({
             data: {
                 location_name: data.locationData.location_name,
@@ -236,7 +208,6 @@ export const createEvent = async (data: CreateEventInput): Promise<EventWithRela
             },
         });
 
-        // Create Event record with locationId and area
         const newEvent = await tx.event.create({
             data: {
                 event_type: data.event_type,
@@ -289,7 +260,6 @@ export const updateEvent = async (
     eventId: number,
     data: UpdateEventInput
 ): Promise<EventWithRelations> => {
-    // Validasi area jika disediakan
     if (data.area !== undefined) {
         const validAreas = ["Korwil_1", "Korwil_2", "Korwil_3", "Korwil_4", "Korwil_5", "Korwil_6"];
         if (data.area !== null && !validAreas.includes(data.area)) {
@@ -297,7 +267,6 @@ export const updateEvent = async (
         }
     }
 
-    // Validate greg_end_date is after greg_occur_date for each occurrence
     if (data.occurrences) {
         for (const occ of data.occurrences) {
             if (occ.greg_end_date && occ.greg_end_date <= occ.greg_occur_date) {
@@ -307,7 +276,6 @@ export const updateEvent = async (
     }
 
     return await prisma.$transaction(async (tx) => {
-        // Update Location if locationData is provided
         if (data.locationData && data.locationId) {
             if (!data.locationData.provinceId || !data.locationData.cityId || !data.locationData.districtId || !data.locationData.localityId) {
                 throw new Error("ProvinceId, cityId, districtId, and localityId are required if locationData is provided");
@@ -327,7 +295,6 @@ export const updateEvent = async (
             });
         }
 
-        // Prepare event update data
         const eventUpdateData: Prisma.EventUpdateInput = {
             event_type: data.event_type,
             event_name: data.event_name,
@@ -341,13 +308,10 @@ export const updateEvent = async (
             area: data.area,
         };
 
-        // Update occurrences if provided
         if (data.occurrences && data.occurrences.length > 0) {
-            // Delete existing occurrences
             await tx.occurrence.deleteMany({
                 where: { event_id: eventId },
             });
-            // Create new occurrences
             eventUpdateData.occurrences = {
                 create: data.occurrences.map((occ) => ({
                     greg_occur_date: occ.greg_occur_date,
@@ -356,7 +320,6 @@ export const updateEvent = async (
             };
         }
 
-        // Update Event
         return await tx.event.update({
             where: { event_id: eventId },
             data: eventUpdateData,
@@ -389,10 +352,7 @@ export const deleteEvent = async (eventId: number): Promise<Event> => {
         throw new Error("Invalid event ID provided");
     }
 
-    console.log(`Starting deletion process for event ID: ${eventId} at ${new Date().toISOString()}`);
-
     try {
-        // Verify if the event exists
         const eventExists = await prisma.event.findUnique({
             where: { event_id: eventId },
             include: {
@@ -400,28 +360,23 @@ export const deleteEvent = async (eventId: number): Promise<Event> => {
                 occurrences: true,
             },
         });
+
         if (!eventExists) {
             throw new Error(`Event with ID ${eventId} not found`);
         }
-        console.log(`Event ${eventId} found with ${eventExists.occurrences.length} occurrences`);
 
-        // Start transaction
         return await prisma.$transaction(async (tx) => {
-            // Delete all related occurrences
             const deletedOccurrences = await tx.occurrence.deleteMany({
                 where: { event_id: eventId },
             });
-            console.log(`Deleted ${deletedOccurrences.count} occurrences for event ${eventId}`);
 
-            // Delete the event
             const deletedEvent = await tx.event.delete({
                 where: { event_id: eventId },
             });
-            console.log(`Successfully deleted event ${eventId}`);
             return deletedEvent;
         });
     } catch (error) {
-        throw error; // Propagate the error to the caller
+        throw error;
     }
 };
 
@@ -429,7 +384,6 @@ export const createOccurrence = async (
     eventId: number,
     data: Omit<Occurrence, "occurrence_id" | "created_at" | "updated_at">
 ): Promise<Occurrence> => {
-    // Validate greg_end_date is after greg_occur_date
     if (data.greg_end_date && data.greg_end_date <= data.greg_occur_date) {
         throw new Error("greg_end_date must be after greg_occur_date");
     }

@@ -38,7 +38,6 @@ app.use(express.urlencoded({ extended: true }));
 const uploadPath = path.resolve(__dirname, "../public/uploads");
 try {
   if (!fs.existsSync(uploadPath)) {
-    console.log("Creating directory:", uploadPath);
     fs.mkdirSync(uploadPath, { recursive: true });
   }
   fs.accessSync(uploadPath, fs.constants.R_OK | fs.constants.W_OK);
@@ -50,7 +49,6 @@ try {
 app.use("/uploads", (req, res, next) => {
   const filePath = path.join(uploadPath, req.path);
   if (!fs.existsSync(filePath)) {
-    console.error(`File not found: ${filePath}`);
     res.status(404).send("File not found");
     return;
   }

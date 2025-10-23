@@ -196,7 +196,6 @@ export const getQiudaosPaginated = async ({
 
   let where: Prisma.QiuDaoWhereInput = {};
 
-  // Handle nested search fields
   const effectiveSearchField = nestedFields[searchField] ? searchField : null;
   if (effectiveSearchField) {
     where = nestedFields[effectiveSearchField];
@@ -226,14 +225,12 @@ export const getQiudaosPaginated = async ({
 
   const combinedFilter: Prisma.QiuDaoWhereInput = {};
 
-  // Filter berdasarkan area untuk wilayah scope
   if (area) {
     combinedFilter.qiu_dao_location = {
       area,
     };
   }
 
-  // Filter berdasarkan user involvement untuk self scope
   if (userId) {
     combinedFilter.qiu_dao_id = {
       in: await prisma.user.findMany({
@@ -243,14 +240,11 @@ export const getQiudaosPaginated = async ({
     };
   }
 
-  console.log("Combined Filter:", JSON.stringify(combinedFilter, null, 2));
   if (Object.keys(combinedFilter).length > 0) {
     filters.push(combinedFilter);
   }
 
   where = filters.length > 1 ? { AND: filters } : filters[0] || {};
-
-  console.log("Final Where Clause:", JSON.stringify(where, null, 2));
 
   const locationInclude = {
     locality: {

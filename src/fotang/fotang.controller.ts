@@ -25,7 +25,6 @@ router.get("/provinces", async (_req: Request, res: Response) => {
         const provinces = await fetchProvinces();
         res.json(provinces);
     } catch (error: any) {
-        console.error("Error saat ambil provinces:", error);
         res.status(500).json({ message: error.message });
     }
 });

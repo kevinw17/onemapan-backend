@@ -18,7 +18,7 @@ export interface ExtendedJwtPayload extends JwtPayload {
 declare global {
   namespace Express {
     interface Request {
-      user?: ExtendedJwtPayload; // Gunakan ExtendedJwtPayload
+      user?: ExtendedJwtPayload;
       userRole?: string;
       userScope?: string;
       userLocationId?: number | undefined;
@@ -39,11 +39,9 @@ export const authenticateJWT = (req: Request, res: Response, next: NextFunction)
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || "your-secret-key") as ExtendedJwtPayload;
-    console.log("DEBUG: Decoded JWT:", decoded);
     req.user = decoded;
     next();
   } catch (error) {
-    console.error("JWT verification error:", error);
     res.status(401).json({ message: "Unauthorized: Invalid token" });
   }
 };

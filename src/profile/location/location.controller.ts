@@ -148,8 +148,6 @@ router.get("/:id", async (req: Request, res: Response) => {
     const id = parseInt(req.params.id);
     const location = await getLocationById(id);
   
-    console.dir(location, { depth: null });
-  
     if (!location) return res.status(404).json({ message: "Lokasi tidak ditemukan" });
   
     res.status(200).json(location);

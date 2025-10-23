@@ -1,12 +1,10 @@
 import prisma from "../../db";
 import { BloodType, Gender, Prisma, SpiritualStatus, User, UserCredential, Korwil, Role, UserRole } from "@prisma/client";
 
-// Define a type for QiuDao to include all relevant fields
 type QiuDaoWithIncludes = {
   qiu_dao_id: number;
   qiu_dao_location_id?: number | null;
   qiu_dao_location?: { area: Korwil } | null;
-  // Add other QiuDao fields as needed
 };
 
 export const findCredential = async (
@@ -172,7 +170,7 @@ export const deleteUser = async (id: number): Promise<User> => {
   });
 };
 
-interface PaginatedUserOptions {
+export interface PaginatedUserOptions {
   skip?: number;
   limit?: number;
   search?: string;
@@ -370,7 +368,6 @@ export const getUsersPaginated = async ({
     };
   }
 
-  console.log("Combined Filter:", JSON.stringify(combinedFilter, null, 2));
   if (Object.keys(combinedFilter).length > 0) {
     filters.push(combinedFilter);
   }

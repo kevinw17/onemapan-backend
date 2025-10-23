@@ -178,7 +178,6 @@ export const createNewEvent = async (input: CreateEventInput): Promise<EventWith
             throw error;
         }
     }
-    // Validate greg_end_date is after greg_occur_date
     for (const occ of input.occurrences) {
         if (occ.greg_end_date && occ.greg_end_date <= occ.greg_occur_date) {
             const error = new Error("greg_end_date must be after greg_occur_date for each occurrence");
@@ -235,7 +234,6 @@ export const updateExistingEvent = async (eventId: number, input: UpdateEventInp
             throw error;
         }
     }
-    // Validate greg_end_date is after greg_occur_date
     if (input.occurrences) {
         for (const occ of input.occurrences) {
             if (occ.greg_end_date && occ.greg_end_date <= occ.greg_occur_date) {

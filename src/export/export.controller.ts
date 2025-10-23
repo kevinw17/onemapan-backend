@@ -18,7 +18,6 @@ router.get("/qiudao", async (req: Request, res: Response) => {
 
         res.send(workbookBuffer);
     } catch (error) {
-        console.error("[EXPORT DATA QIUDAO] Gagal export Excel:", error);
         res.status(500).json({ message: "Gagal mengekspor data" });
     }
 });
@@ -38,7 +37,6 @@ router.get("/umat", async (req: Request, res: Response) => {
 
         res.send(workbookBuffer);
     } catch (error) {
-        console.error("[EXPORT DATA UMAT] Gagal export Excel:", error);
         res.status(500).json({ message: "Gagal mengekspor data" });
     }
 });

@@ -13,16 +13,12 @@ import prisma from "../../db";
 
 const router = Router();
 
-// Get all QiuDao (filtered by scope)
 router.get(
   "/",
   authenticateJWT,
   authorize({ feature: "qiudao", action: "read" }),
   async (req: Request, res: Response) => {
     try {
-      console.log("DEBUG GET /profile/qiudao: userScope=", req.userScope, "userArea=", req.userArea, "query=", req.query);
-      console.log("DEBUG: User JWT:", req.user);
-
       if (!req.user) {
         res.status(401).json({ message: "Unauthorized: No user data in request" });
         return;
@@ -39,30 +35,25 @@ router.get(
         search,
         searchField,
         area: req.userScope === "wilayah" ? req.userArea : undefined,
-        userId: req.userScope === "self" && req.userRole !== "user" ? req.user.user_info_id : undefined, // Exclude userId filter for role User
+        userId: req.userScope === "self" && req.userRole !== "user" ? req.user.user_info_id : undefined,
       };
 
-      console.log("DEBUG: fetchOptions passed to service:", fetchOptions);
 
       const qiudaoList = await fetchAllQiudao(fetchOptions);
 
       res.status(200).json(qiudaoList);
     } catch (error: any) {
-      console.error("Error in GET /profile/qiudao:", error.message);
       res.status(500).json({ message: error.message });
     }
   }
 );
 
-// Get QiuDao by ID
 router.get(
   "/:id",
   authenticateJWT,
   authorize({ feature: "qiudao", action: "read" }),
   async (req: Request, res: Response) => {
     try {
-      console.log("DEBUG GET /profile/qiudao/:id: userScope=", req.userScope, "userArea=", req.userArea);
-
       if (!req.user) {
         res.status(401).json({ message: "Unauthorized: No user data in request" });
         return;
@@ -97,21 +88,17 @@ router.get(
 
       res.status(200).json(qiudao);
     } catch (error: any) {
-      console.error("Error in GET /profile/qiudao/:id:", error.message);
       res.status(500).json({ message: error.message });
     }
   }
 );
 
-// Create, Update, Delete routes tetap sama seperti sebelumnya
 router.post(
   "/",
   authenticateJWT,
   authorize({ feature: "qiudao", action: "create", scope: ["nasional", "wilayah"] }),
   async (req: Request, res: Response) => {
     try {
-      console.log("DEBUG POST /profile/qiudao: userScope=", req.userScope, "userArea=", req.userArea, "body:", req.body);
-
       const qiu_dao_location_id = parseInt(req.body.qiu_dao_location_id);
       if (req.userScope === "wilayah" && req.userArea) {
         const selectedFotang = await prisma.fotang.findUnique({
@@ -132,11 +119,9 @@ router.post(
         ...req.body,
         qiu_dao_location_id,
       };
-      console.log("DEBUG: Creating Qiudao with data:", data);
       const qiuDao = await registerQiuDao(data);
       res.status(201).json({ qiu_dao_id: qiuDao.qiu_dao_id });
     } catch (error: any) {
-      console.error("Create QiuDao error:", error.message);
       res.status(400).json({ message: error.message });
     }
   }
@@ -148,8 +133,6 @@ router.patch(
   authorize({ feature: "qiudao", action: "update", scope: ["nasional", "wilayah"] }),
   async (req: Request, res: Response) => {
     try {
-      console.log("DEBUG PATCH /profile/qiudao/:id: userScope=", req.userScope, "userArea=", req.userArea);
-
       if (!req.user) {
         res.status(401).json({ message: "Unauthorized: No user data in request" });
         return;
@@ -177,7 +160,6 @@ router.patch(
         data: updatedQiudao,
       });
     } catch (error: any) {
-      console.error("Error in PATCH /profile/qiudao/:id:", error.message);
       res.status(500).json({ message: error.message });
     }
   }
@@ -189,8 +171,6 @@ router.delete(
   authorize({ feature: "qiudao", action: "delete", scope: ["nasional", "wilayah"] }),
   async (req: Request, res: Response) => {
     try {
-      console.log("DEBUG DELETE /profile/qiudao/:id: userScope=", req.userScope, "userArea=", req.userArea);
-
       if (!req.user) {
         res.status(401).json({ message: "Unauthorized: No user data in request" });
         return;
@@ -222,7 +202,6 @@ router.delete(
         deletedQiudao,
       });
     } catch (error: any) {
-      console.error("Delete QiuDao Error:", error.message);
       res.status(400).json({ message: error.message });
     }
   }

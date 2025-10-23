@@ -1,12 +1,12 @@
 import ExcelJS from "exceljs";
-import { getLocalityId, getOrCreateLocation } from "../profile/location/location.repository"; // Tambahkan getOrCreateLocation
+import { getLocalityId, getOrCreateLocation } from "../profile/location/location.repository";
 import { createQiuDao } from "../profile/qiudao/qiudao.repository";
 import { createUser } from "../profile/user/user.repository";
 import prisma from "../db";
 import { CellValue } from "exceljs";
 import { BloodType, Gender, Korwil, MaritalStatus, SpiritualStatus } from "@prisma/client";
 import { Fotang } from "@prisma/client";
-import { Buffer } from "buffer"; // Impor Buffer dari modul buffer
+import { Buffer } from "buffer"; 
 
 function safeString(val: CellValue | undefined | null): string | undefined {
     return val ? String(val).trim() : undefined;
@@ -60,22 +60,19 @@ async function getFotang(data: {
     area: Korwil;
 }): Promise<Fotang | null> {
     const { location_name, localityId, postal_code, area } = data;
-    console.log(`Mencari Fotang dengan: location_name='${location_name}', localityId=${localityId}, postal_code='${postal_code}', area='${area}'`);
     const existingFotang = await prisma.fotang.findFirst({
         where: {
             location_name: {
                 equals: location_name,
-                mode: "insensitive", // Mengabaikan kasus huruf
+                mode: "insensitive",
             },
             localityId: localityId,
-            postal_code: postal_code, // Biarkan nullable
+            postal_code: postal_code,
             area: area,
         },
     });
 
     if (!existingFotang) {
-        console.log(`Tidak ada Fotang yang cocok ditemukan dengan kriteria di atas.`);
-        // Coba cari berdasarkan location_name saja sebagai fallback (opsional)
         const fallbackFotang = await prisma.fotang.findFirst({
             where: {
                 location_name: {
@@ -85,7 +82,6 @@ async function getFotang(data: {
             },
         });
         if (fallbackFotang) {
-            console.log(`Fotang ditemukan dengan fallback (location_name saja): localityId=${fallbackFotang.localityId}, postal_code=${fallbackFotang.postal_code}, area=${fallbackFotang.area}`);
             return fallbackFotang;
         }
     }
@@ -94,7 +90,6 @@ async function getFotang(data: {
 
 export const importUmatFromExcel = async (buffer: Buffer | ArrayBuffer) => {
     const workbook = new ExcelJS.Workbook();
-    // Konversi buffer ke Buffer Node.js dengan casting eksplisit melalui Uint8Array
     const normalizedBuffer = Buffer.isBuffer(buffer)
         ? buffer
         : Buffer.from(new Uint8Array(buffer as ArrayBuffer));
@@ -139,7 +134,6 @@ export const importUmatFromExcel = async (buffer: Buffer | ArrayBuffer) => {
         });
 
         if (!domicileLocation || !idCardLocation) {
-            console.log(`Baris ${i} dilewati: Lokasi domisili atau KTP tidak ditemukan.`);
             continue;
         }
 
@@ -166,13 +160,11 @@ export const importUmatFromExcel = async (buffer: Buffer | ArrayBuffer) => {
             });
 
             if (existingUserWithQiuDao) {
-                console.log(`Baris ${i} dilewati: qiudao_id '${qiuDao.qiu_dao_id}' sudah dipakai.`);
                 continue;
             }
         }
 
         if (!qiuDao) {
-            console.log(`Baris ${i} dilewati: tidak ditemukan qiudao untuk user ini.`);
             continue;
         }
 
@@ -218,7 +210,6 @@ export const importUmatFromExcel = async (buffer: Buffer | ArrayBuffer) => {
 
 export const importQiudaoFromExcel = async (buffer: Buffer | ArrayBuffer) => {
     const workbook = new ExcelJS.Workbook();
-    // Konversi buffer ke Buffer Node.js dengan casting eksplisit melalui Uint8Array
     const normalizedBuffer = Buffer.isBuffer(buffer)
         ? buffer
         : Buffer.from(new Uint8Array(buffer as ArrayBuffer));
@@ -256,7 +247,6 @@ export const importQiudaoFromExcel = async (buffer: Buffer | ArrayBuffer) => {
         const lunar_shi_chen_time = safeString(row.getCell(headerMap["Waktu Lunar"])?.value);
 
         if (!lunar_sui_ci_year || !lunar_month || !lunar_day || !lunar_shi_chen_time) {
-            console.error(`[IMPORT QIUDAO] Baris ${i} gagal: Data lunar tidak lengkap`);
             errorCount++;
             continue;
         }
@@ -275,7 +265,6 @@ export const importQiudaoFromExcel = async (buffer: Buffer | ArrayBuffer) => {
 
         const location = await getFotang(locationData);
         if (!location) {
-            console.error(`[IMPORT QIUDAO] Baris ${i} gagal: Fotang tidak ditemukan untuk ${locationData.location_name} (localityId: ${locationData.localityId}, postal_code: ${locationData.postal_code}, area: ${locationData.area})`);
             errorCount++;
             continue;
         }
@@ -301,7 +290,6 @@ export const importQiudaoFromExcel = async (buffer: Buffer | ArrayBuffer) => {
         });
 
         if (existing) {
-            console.log(`[IMPORT QIUDAO] Duplikat ditemukan: ${qiu_dao_name}, dilewati.`);
             duplicateCount++;
             continue;
         }
@@ -316,7 +304,6 @@ export const importQiudaoFromExcel = async (buffer: Buffer | ArrayBuffer) => {
         });
 
         if (!pandita) {
-            console.error(`[IMPORT QIUDAO] Baris ${i} gagal: Dian Chuan Shi tidak ditemukan di database untuk ${dian_chuan_shi_name} atau ${dian_chuan_shi_mandarin_name}`);
             errorCount++;
             continue;
         }
@@ -340,7 +327,6 @@ export const importQiudaoFromExcel = async (buffer: Buffer | ArrayBuffer) => {
                 lunar_day,
                 lunar_shi_chen_time,
             });
-            console.log(`[IMPORT QIUDAO] Berhasil mengimpor qiudao: ${qiu_dao_name}`);
             successCount++;
         } catch (error) {
             errorCount++;

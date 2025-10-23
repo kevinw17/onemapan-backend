@@ -20,22 +20,15 @@ interface AuthRequest extends Request {
 
 const router = express.Router();
 
-// Create User
 router.post(
   "/",
   authenticateJWT,
   authorize({ feature: "umat", action: "create", scope: "wilayah" }),
   async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
-      console.log("=== DEBUG POST /profile/user ===");
-      console.log("userScope:", req.userScope);
-      console.log("userArea:", req.userArea);
-      console.log("body:", req.body);
-
       const qiu_dao_id = parseInt(req.body.qiu_dao_id);
       if (req.userScope === "wilayah" && req.userArea) {
         if (!qiu_dao_id) {
-          console.warn("No qiu_dao_id provided for wilayah user");
           res.status(400).json({ message: "QiuDao ID wajib dipilih" });
           return;
         }
@@ -44,16 +37,13 @@ router.post(
           include: { qiu_dao_location: true },
         });
         if (!qiuDao) {
-          console.warn("QiuDao not found for ID:", qiu_dao_id);
           res.status(404).json({ message: "QiuDao tidak ditemukan" });
           return;
         }
         if (qiuDao.qiu_dao_location?.area !== req.userArea) {
-          console.warn("QiuDao area mismatch:", { qiuDaoArea: qiuDao.qiu_dao_location?.area, userArea: req.userArea });
           res.status(403).json({ message: "Forbidden: QiuDao harus dari wilayah yang sama" });
           return;
         }
-        console.log("DEBUG: QiuDao area matches userArea:", { qiuDaoArea: qiuDao.qiu_dao_location?.area, userArea: req.userArea });
       }
 
       const data = {
@@ -62,31 +52,21 @@ router.post(
         domicile_location_id: parseInt(req.body.domicile_location_id),
         id_card_location_id: parseInt(req.body.id_card_location_id),
       };
-      console.log("DEBUG: Creating User with data:", data);
       await registerUser(data);
       res.status(201).send("User registered successfully");
     } catch (error: any) {
-      console.error("Error in POST /profile/user:", error.message);
       res.status(400).json({ message: error.message });
     }
   }
 );
 
-// Get all Users (filtered by scope)
 router.get(
   "/",
   authenticateJWT,
   authorize({ feature: "umat", action: "read" }),
   async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
-      console.log("=== DEBUG GET /profile/user ===");
-      console.log("User:", req.user);
-      console.log("Scope:", req.userScope);
-      console.log("Area:", req.userArea);
-      console.log("Query Params:", req.query);
-
       if (!req.user) {
-        console.error("No user found in request after authentication");
         res.status(401).json({ message: "Unauthorized: No user data available" });
         return;
       }
@@ -115,9 +95,6 @@ router.get(
         userArea = req.userArea;
       } else if (req.user.role !== "Super Admin" && req.user.area) {
         userArea = req.user.area as Korwil;
-        console.warn("Using req.user.area as fallback due to unexpected userScope:", req.userScope);
-      } else {
-        console.log("No area filter applied (Super Admin or no area specified)");
       }
 
       const fetchOptions = {
@@ -135,21 +112,15 @@ router.get(
         userId: req.userScope === "self" && req.user.role !== "user" ? req.user.user_info_id : undefined,
       };
 
-      console.log("Fetch Options:", fetchOptions);
-
       const users = await fetchAllUsers(fetchOptions);
-      console.log("Total Users:", users.total);
-      console.log("=== DEBUG END ===");
 
       res.status(200).json(users);
     } catch (error: any) {
-      console.error("Error in GET /profile/user:", error.message);
       res.status(500).json({ message: error.message });
     }
   }
 );
 
-// Get User by ID
 router.get(
   "/:id",
   authenticateJWT,
@@ -173,20 +144,9 @@ router.get(
         return;
       }
 
-      console.log("DEBUG: User Data:", {
-        userId: user.user_info_id,
-        full_name: user.full_name,
-        qiudao: user.qiudao ? {
-          qiu_dao_id: user.qiudao.qiu_dao_id,
-          qiu_dao_location: user.qiudao.qiu_dao_location ? { area: user.qiudao.qiu_dao_location.area } : null,
-        } : null,
-        area: user.area,
-      });
-
       if (req.userScope === "wilayah" && req.userArea) {
         const userArea = user.area || user.qiudao?.qiu_dao_location?.area;
         if (userArea && userArea !== req.userArea) {
-          console.warn("Region mismatch:", { userArea, reqUserArea: req.userArea });
           res.status(403).json({ message: "Forbidden: User dari wilayah lain" });
           return;
         }
@@ -194,13 +154,11 @@ router.get(
 
       res.status(200).json(user);
     } catch (error: any) {
-      console.error("Error in GET /profile/user/:id:", error.message);
       res.status(500).json({ message: error.message });
     }
   }
 );
 
-// Update User
 router.patch(
   "/:id",
   authenticateJWT,
@@ -226,20 +184,9 @@ router.patch(
         return;
       }
 
-      console.log("DEBUG: User Data for Update:", {
-        userId: user.user_info_id,
-        full_name: user.full_name,
-        qiudao: user.qiudao ? {
-          qiu_dao_id: user.qiudao.qiu_dao_id,
-          qiu_dao_location: user.qiudao.qiu_dao_location ? { area: user.qiudao.qiu_dao_location.area } : null,
-        } : null,
-        area: user.area,
-      });
-
       if (req.userScope === "wilayah" && req.userArea) {
         const userArea = user.area || user.qiudao?.qiu_dao_location?.area;
         if (userArea && userArea !== req.userArea) {
-          console.warn("Region mismatch for update:", { userArea, reqUserArea: req.userArea });
           res.status(403).json({ message: "Forbidden: Cannot update user from different region" });
           return;
         }
@@ -251,60 +198,39 @@ router.patch(
         data: updatedUser,
       });
     } catch (error: any) {
-      console.error("Error in PATCH /profile/user/:id:", error.message);
       res.status(500).json({ message: error.message });
     }
   }
 );
 
-// Delete User
 router.delete(
   "/:id",
   authenticateJWT,
   authorize({ feature: "umat", action: "delete", scope: ["nasional", "wilayah"] }),
   async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
-      console.log("=== DEBUG DELETE /profile/user/:id ===");
-      console.log("User Scope:", req.userScope);
-      console.log("User Area:", req.userArea);
-      console.log("User JWT:", req.user);
-
       const userId = parseInt(req.params.id);
       const user = await getUserById(userId) as UserWithRelations | null;
 
       if (!user) {
-        console.log("User not found:", userId);
         res.status(404).json({ message: "User tidak ditemukan" });
         return;
       }
 
-      console.log("DEBUG: User Data for Delete:", {
-        userId: user.user_info_id,
-        full_name: user.full_name,
-        qiudao: user.qiudao ? {
-          qiu_dao_id: user.qiudao.qiu_dao_id,
-          qiu_dao_location: user.qiudao.qiu_dao_location ? { area: user.qiudao.qiu_dao_location.area } : null,
-        } : null,
-        area: user.area,
-      });
-
       if (req.userScope === "wilayah" && req.userArea) {
         const userArea = user.area || user.qiudao?.qiu_dao_location?.area;
         if (userArea && userArea !== req.userArea) {
-          console.log("Region mismatch:", { userArea, reqUserArea: req.userArea });
           res.status(403).json({ message: "Forbidden: Cannot delete user from different region" });
           return;
         }
       }
 
       const deletedUser = await deleteUserById(userId);
-      console.log("User deleted:", userId);
       res.status(200).json({
         message: "User berhasil dihapus",
         deletedUser,
       });
     } catch (error: any) {
-      console.error("Delete Error:", error.message);
       res.status(400).json({ message: error.message });
     }
   }

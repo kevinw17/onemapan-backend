@@ -43,15 +43,9 @@ export const getLocalityId = async ({
   });
 
   if (!locality) {
-    console.error("[getLocalityId] Tidak ditemukan:", {
-    name,
-    districtName,
-    cityName,
-    provinceName,
-  });
-  throw new Error(
-    `Locality tidak ditemukan untuk ${name}, ${districtName}, ${cityName}, ${provinceName}`
-  );
+    throw new Error(
+      `Locality tidak ditemukan untuk ${name}, ${districtName}, ${cityName}, ${provinceName}`
+    );
   }
 
   return locality.id;

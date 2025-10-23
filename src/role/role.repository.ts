@@ -1,5 +1,5 @@
 import prisma from "../db";
-import { Prisma, Role, UserRole } from "@prisma/client";
+import { Prisma, Role, UserRole, User } from "@prisma/client";
 
 export const createRole = async (data: Prisma.RoleCreateInput): Promise<Role> => {
     return await prisma.role.create({ data });
@@ -9,9 +9,10 @@ export const getAllRoles = async (): Promise<Role[]> => {
     return await prisma.role.findMany({
         include: {
             userRoles: {
-                include: {
-                user: true,
-                },
+                select: {
+                    user_id: true,
+                    role_id: true
+                }
             },
         },
     });
@@ -23,7 +24,7 @@ export const findRoleById = async (id: number): Promise<Role | null> => {
         include: {
             userRoles: {
                 include: {
-                user: true,
+                    user: true,
                 },
             },
         },
@@ -75,4 +76,8 @@ export const getUserRolesByUserId = async (user_id: number): Promise<(UserRole &
             role: true,
         },
     });
+};
+
+export const getAllUsers = async (): Promise<User[]> => {
+    return await prisma.user.findMany();
 };

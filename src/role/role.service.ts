@@ -1,4 +1,5 @@
-import { Role, UserRole } from "@prisma/client";
+import { Role, UserRole, User } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import {
     createRole,
     getAllRoles,
@@ -8,39 +9,119 @@ import {
     createUserRole,
     deleteUserRole,
     getUserRolesByUserId,
+    getAllUsers,
 } from "./role.repository";
 import prisma from "../db";
+
+type Permissions = {
+    [key: string]: {
+        create?: boolean;
+        read?: boolean;
+        update?: boolean;
+        delete?: boolean;
+        import?: boolean;
+        read_national?: boolean;
+        read_area?: boolean;
+        create_type?: boolean;
+        create_role?: boolean;
+        edit_role?: boolean;
+        delete_role?: boolean;
+        scope: string;
+    };
+};
 
 interface CreateRoleInput {
     name: string;
     description?: string;
-    permissions: any;
+    permissions: Permissions;
 }
 
 interface UpdateRoleInput {
     name?: string;
     description?: string;
-    permissions?: any;
+    permissions?: Permissions;
 }
 
-export const createNewRole = async (data: CreateRoleInput): Promise<Role> => {
+const validModules = ["umat", "qiudao", "dashboard", "kegiatan", "account"];
+const validScopes = ["nasional", "Korwil_1", "Korwil_2", "Korwil_3", "Korwil_4", "Korwil_5", "Korwil_6"];
+const validActions: { [key: string]: string[] } = {
+    umat: ["create", "read", "update", "delete", "import"],
+    qiudao: ["create", "read", "update", "delete", "import"],
+    dashboard: ["read_national", "read_area"],
+    kegiatan: ["create", "read", "update", "delete", "create_type"],
+    account: ["create_role", "edit_role", "delete_role"],
+};
+
+const validatePermissions = (permissions: Permissions) => {
+    if (typeof permissions !== "object" || permissions === null) {
+        throw new Error("Permissions harus berupa objek JSON");
+    }
+    for (const module of Object.keys(permissions)) {
+        if (!validModules.includes(module)) {
+            throw new Error(`Modul tidak valid: ${module}`);
+        }
+        const mod = permissions[module];
+        if (!mod || typeof mod !== "object" || !mod.scope) {
+            throw new Error(`Modul ${module} harus memiliki properti scope`);
+        }
+        if (!validScopes.includes(mod.scope)) {
+            throw new Error(`Scope tidak valid untuk ${module}: ${mod.scope}`);
+        }
+        for (const action of Object.keys(mod)) {
+            if (action !== "scope" && !validActions[module].includes(action)) {
+                throw new Error(`Aksi tidak valid untuk ${module}: ${action}`);
+            }
+        }
+    }
+};
+
+const validateAreaAccess = (userRole: string, userArea: string | null, permissions: Permissions) => {
+    if (userRole !== "Super_Admin" && userArea) {
+        for (const module of Object.keys(permissions)) {
+            const mod = permissions[module];
+            if (mod && mod.scope !== "nasional" && mod.scope !== userArea) {
+                throw new Error(`Admin hanya dapat mengelola peran untuk wilayah ${userArea} atau nasional`);
+            }
+        }
+    }
+};
+
+export const createNewRole = async (
+    data: CreateRoleInput,
+    userRole: string,
+    userArea: string | null
+): Promise<Role> => {
     if (!data.name) {
         throw new Error("Nama peran wajib diisi");
     }
 
-    if (!data.permissions || typeof data.permissions !== "object") {
-        throw new Error("Permissions harus berupa objek JSON");
-    }
+    validatePermissions(data.permissions);
+    validateAreaAccess(userRole, userArea, data.permissions);
 
     return await createRole({
         name: data.name,
         description: data.description,
-        permissions: data.permissions,
+        permissions: data.permissions as Prisma.InputJsonValue,
     });
 };
 
-export const fetchAllRoles = async (): Promise<Role[]> => {
-    return await getAllRoles();
+export const fetchAllRoles = async (
+    userRole: string,
+    userArea: string | null
+): Promise<Role[]> => {
+    const roles = await getAllRoles();
+    
+    if (userRole === "Super Admin") {
+        return roles;
+    }
+    
+    return roles.filter(role => {
+        const permissions = role.permissions as Permissions;
+        return Object.keys(permissions).every(module => {
+            const mod = permissions[module];
+            return mod && (mod.scope === "nasional" || mod.scope === userArea);
+        });
+    });
 };
 
 export const getRoleById = async (id: number): Promise<Role | null> => {
@@ -52,16 +133,10 @@ export const getRoleById = async (id: number): Promise<Role | null> => {
 
 export const updateRoleById = async (
     id: number,
-    updateData: UpdateRoleInput
+    updateData: UpdateRoleInput,
+    userRole: string,
+    userArea: string | null
 ): Promise<Role> => {
-    if (!id || typeof id !== "number") {
-        throw new Error("ID peran tidak valid");
-    }
-
-    return await updateRole(id, updateData);
-};
-
-export const deleteRoleById = async (id: number): Promise<Role> => {
     if (!id || typeof id !== "number") {
         throw new Error("ID peran tidak valid");
     }
@@ -71,12 +146,41 @@ export const deleteRoleById = async (id: number): Promise<Role> => {
         throw new Error("Peran tidak ditemukan");
     }
 
+    if (updateData.permissions) {
+        validatePermissions(updateData.permissions);
+    }
+    validateAreaAccess(userRole, userArea, updateData.permissions || (role.permissions as Permissions));
+
+    return await updateRole(id, {
+        ...updateData,
+        permissions: updateData.permissions as Prisma.InputJsonValue,
+    });
+};
+
+export const deleteRoleById = async (
+    id: number,
+    userRole: string,
+    userArea: string | null
+): Promise<Role> => {
+    if (!id || typeof id !== "number") {
+        throw new Error("ID peran tidak valid");
+    }
+
+    const role = await findRoleById(id);
+    if (!role) {
+        throw new Error("Peran tidak ditemukan");
+    }
+
+    validateAreaAccess(userRole, userArea, role.permissions as Permissions);
+
     return await deleteRole(id);
 };
 
 export const assignRoleToUser = async (
     user_id: number,
-    role_id: number
+    role_id: number,
+    userRole: string,
+    userArea: string | null
 ): Promise<UserRole> => {
     if (!user_id || !role_id) {
         throw new Error("user_id dan role_id wajib diisi");
@@ -90,6 +194,8 @@ export const assignRoleToUser = async (
     if (!role) {
         throw new Error("Peran tidak ditemukan");
     }
+
+    validateAreaAccess(userRole, userArea, role.permissions as Permissions);
 
     const existingUserRole = await prisma.userRole.findUnique({
         where: { user_id_role_id: { user_id, role_id } },
@@ -106,11 +212,20 @@ export const assignRoleToUser = async (
 
 export const removeRoleFromUser = async (
     user_id: number,
-    role_id: number
+    role_id: number,
+    userRole: string,
+    userArea: string | null
 ): Promise<UserRole> => {
     if (!user_id || !role_id) {
         throw new Error("user_id dan role_id wajib diisi");
     }
+
+    const role = await findRoleById(role_id);
+    if (!role) {
+        throw new Error("Peran tidak ditemukan");
+    }
+
+    validateAreaAccess(userRole, userArea, role.permissions as Permissions);
 
     return await deleteUserRole(user_id, role_id);
 };
@@ -121,4 +236,15 @@ export const getRolesByUserId = async (user_id: number): Promise<(UserRole & { r
     }
 
     return await getUserRolesByUserId(user_id);
+};
+
+export const fetchAllUsers = async (
+    userRole: string,
+    userArea: string | null
+): Promise<User[]> => {
+    const users = await getAllUsers();
+    if (userRole === "Super_Admin") {
+        return users;
+    }
+    return users;
 };

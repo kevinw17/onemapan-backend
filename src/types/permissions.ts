@@ -1,4 +1,3 @@
-// types/permissions.ts
 export interface Permissions {
     umat?: {
         read?: boolean;

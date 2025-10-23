@@ -31,7 +31,6 @@ const storage = multer.diskStorage({
             fs.accessSync(uploadPath, fs.constants.W_OK);
             cb(null, uploadPath);
         } catch (err) {
-            console.error("Directory access error:", err);
         }
     },
     filename: (req, file, cb) => {
@@ -82,41 +81,26 @@ router.post("/upload", authenticateJWT, upload.single("file"), async (req: AuthR
 
 router.get("/", authenticateJWT, async (req: AuthRequest, res: Response) => {
     try {
-        console.log("DEBUG: GET /events, user:", { role: req.user!.role, area: req.user!.area });
         const events = await getEvents();
         let filteredEvents = events;
-
-        // Restrict non-Super Admin users to their own area or national events
         if (req.user!.role !== "Super Admin") {
             const userArea = req.user!.area;
             if (userArea) {
-                console.log(`DEBUG: Filtering events for ${req.user!.role} with area: ${userArea}`);
                 filteredEvents = events.filter(event => event.area === userArea || event.area === null);
             } else {
-                console.warn(`Non-Super Admin (role: ${req.user!.role}) has no area defined, showing only national events`);
                 filteredEvents = events.filter(event => event.area === null);
             }
-        } else {
-            console.log("DEBUG: Super Admin, returning all events");
-        }
+        } 
 
-        console.log("DEBUG: All Events:", filteredEvents.map(event => ({
-            event_id: event.event_id,
-            event_name: event.event_name,
-            area: event.area,
-            is_recurring: event.is_recurring,
-        })));
         res.status(200).json(filteredEvents);
     } catch (error: any) {
         const statusCode = error.statusCode || 500;
-        console.error("DEBUG: Error in GET /events:", error.message);
         res.status(statusCode).json({ message: error.message });
     }
 });
 
 router.get("/filtered", authenticateJWT, async (req: AuthRequest, res: Response) => {
     try {
-        console.log("DEBUG: GET /events/filtered, user:", { role: req.user!.role, area: req.user!.area }, "query:", req.query);
         const { event_type, area, is_recurring, startDate, endDate } = req.query;
 
         const validEventTypes = [
@@ -154,18 +138,14 @@ router.get("/filtered", authenticateJWT, async (req: AuthRequest, res: Response)
         if (req.user!.role !== "Super Admin") {
             const userArea = req.user!.area;
             if (userArea) {
-                console.log(`DEBUG: Filtering for ${req.user!.role} with area: ${userArea}`);
                 areaParam = userArea as Korwil;
                 if (area && area !== userArea && area !== "nasional" && area !== "null") {
-                    console.warn(`Non-Super Admin (role: ${req.user!.role}, area: ${userArea}) attempted to filter events with unauthorized area: ${area}`);
-                    areaParam = userArea as Korwil; // Ignore requested area
+                    areaParam = userArea as Korwil; 
                 }
             } else {
-                console.warn(`Non-Super Admin (role: ${req.user!.role}) has no area defined, filtering by national events`);
                 areaParam = null;
             }
         } else {
-            console.log("DEBUG: Super Admin, processing area filter from query");
             if (area !== undefined) {
                 if (typeof area === "string" && (area === "null" || area === "" || area === "nasional")) {
                     areaParam = null;
@@ -213,8 +193,6 @@ router.get("/filtered", authenticateJWT, async (req: AuthRequest, res: Response)
             }
         }
 
-        console.log("DEBUG: Final Filter Params:", { event_type: eventTypeParam, area: areaParam, is_recurring: isRecurringParam, startDate, endDate });
-
         const events = await getFilteredEvents({
             event_type: eventTypeParam,
             area: areaParam,
@@ -223,58 +201,43 @@ router.get("/filtered", authenticateJWT, async (req: AuthRequest, res: Response)
             endDate: endDate ? endDate.toString() : undefined,
         });
 
-        console.log("DEBUG: Filtered Events:", events.map(event => ({
-            event_id: event.event_id,
-            event_name: event.event_name,
-            area: event.area,
-            is_recurring: event.is_recurring,
-        })));
-
         res.status(200).json(events);
     } catch (error: any) {
         const statusCode = error.statusCode || 500;
-        console.error("DEBUG: Error in GET /events/filtered:", error.message);
         res.status(statusCode).json({ message: error.message });
     }
 });
 
 router.get("/:eventId", authenticateJWT, async (req: AuthRequest, res: Response) => {
     try {
-        console.log("DEBUG: GET /events/:eventId, user:", { role: req.user!.role, area: req.user!.area }, "eventId:", req.params.eventId);
         const event = await getEvent(parseInt(req.params.eventId));
         if (!event) {
             res.status(404).json({ message: "Event tidak ditemukan" });
             return;
         }
-        // Restrict non-Super Admin users (User and Admin) to their own area or national events
         if (req.user!.role !== "Super Admin") {
             const userArea = req.user!.area;
             if (userArea) {
                 if (event.area !== null && event.area !== userArea) {
-                    console.warn(`Non-Super Admin (role: ${req.user!.role}, area: ${userArea}) attempted to access event ${event.event_id} with unauthorized area: ${event.area}`);
                     res.status(403).json({ message: "Akses ditolak: Event tidak berada di wilayah Anda" });
                     return;
                 }
             } else {
                 if (event.area !== null) {
-                    console.warn(`Non-Super Admin (role: ${req.user!.role}, area: null) attempted to access event ${event.event_id} with non-national area: ${event.area}`);
                     res.status(403).json({ message: "Akses ditolak: Anda hanya dapat melihat event nasional" });
                     return;
                 }
             }
         }
-        console.log("DEBUG: Returning event:", { event_id: event.event_id, event_name: event.event_name, area: event.area });
         res.status(200).json(event);
     } catch (error: any) {
         const statusCode = error.statusCode || 500;
-        console.error("DEBUG: Error in GET /events/:eventId:", error.message);
         res.status(statusCode).json({ message: error.message });
     }
 });
 
 router.post("/", authenticateJWT, async (req: AuthRequest, res: Response) => {
     try {
-        console.log("DEBUG: POST /events, user:", { role: req.user!.role, area: req.user!.area }, "body:", req.body);
         if (!req.body.localityId || isNaN(parseInt(req.body.localityId))) {
             const error = new Error("localityId wajib diisi dan harus berupa angka");
             (error as any).statusCode = 400;
@@ -308,7 +271,6 @@ router.post("/", authenticateJWT, async (req: AuthRequest, res: Response) => {
                 throw error;
             }
             if (req.user!.role !== "Super Admin" && req.body.area !== req.user!.area && req.body.area !== null) {
-                console.warn(`Non-Super Admin (role: ${req.user!.role}, area: ${req.user!.area}) attempted to create event with unauthorized area: ${req.body.area}`);
                 const error = new Error("Akses ditolak: Anda hanya dapat membuat event untuk wilayah Anda atau nasional");
                 (error as any).statusCode = 403;
                 throw error;
@@ -352,18 +314,15 @@ router.post("/", authenticateJWT, async (req: AuthRequest, res: Response) => {
                 greg_end_date: occ.greg_end_date ? new Date(occ.greg_end_date) : null,
             })),
         });
-        console.log("DEBUG: Created event:", { event_id: event.event_id, event_name: event.event_name, area: event.area });
         res.status(201).json(event);
     } catch (error: any) {
         const statusCode = error.statusCode || 500;
-        console.error("DEBUG: Error in POST /events:", error.message);
         res.status(statusCode).json({ message: error.message });
     }
 });
 
 router.patch("/:id", authenticateJWT, async (req: AuthRequest, res: Response) => {
     try {
-        console.log("DEBUG: PATCH /events/:id, user:", { role: req.user!.role, area: req.user!.area }, "id:", req.params.id, "body:", req.body);
         if (req.body.localityId && isNaN(parseInt(req.body.localityId))) {
             const error = new Error("localityId harus berupa angka");
             (error as any).statusCode = 400;
@@ -397,7 +356,6 @@ router.patch("/:id", authenticateJWT, async (req: AuthRequest, res: Response) =>
                 throw error;
             }
             if (req.user!.role !== "Super Admin" && req.body.area !== req.user!.area && req.body.area !== null) {
-                console.warn(`Non-Super Admin (role: ${req.user!.role}, area: ${req.user!.area}) attempted to update event ${req.params.id} with unauthorized area: ${req.body.area}`);
                 const error = new Error("Akses ditolak: Anda hanya dapat mengupdate event untuk wilayah Anda atau nasional");
                 (error as any).statusCode = 403;
                 throw error;
@@ -443,34 +401,28 @@ router.patch("/:id", authenticateJWT, async (req: AuthRequest, res: Response) =>
                 greg_end_date: occ.greg_end_date ? new Date(occ.greg_end_date) : null,
             })) : undefined,
         });
-        console.log("DEBUG: Updated event:", { event_id: event.event_id, event_name: event.event_name, area: event.area });
         res.status(200).json(event);
     } catch (error: any) {
         const statusCode = error.statusCode || 500;
-        console.error("DEBUG: Error in PATCH /events/:id:", error.message);
         res.status(statusCode).json({ message: error.message });
     }
 });
 
 router.delete("/:id", authenticateJWT, async (req: AuthRequest, res: Response) => {
     try {
-        console.log("DEBUG: DELETE /events/:id, user:", { role: req.user!.role, area: req.user!.area }, "id:", req.params.id);
         const event = await getEvent(parseInt(req.params.id));
         if (!event) {
             res.status(404).json({ message: "Event tidak ditemukan" });
             return;
         }
         if (req.user!.role !== "Super Admin" && event.area !== null && event.area !== req.user!.area) {
-            console.warn(`Non-Super Admin (role: ${req.user!.role}, area: ${req.user!.area}) attempted to delete event ${req.params.id} with unauthorized area: ${event.area}`);
             res.status(403).json({ message: "Akses ditolak: Anda hanya dapat menghapus event untuk wilayah Anda atau nasional" });
             return;
         }
         await removeEvent(parseInt(req.params.id));
-        console.log("DEBUG: Deleted event:", { event_id: event.event_id, event_name: event.event_name, area: event.area });
         res.status(200).json(event);
     } catch (error: any) {
         const statusCode = error.statusCode || 500;
-        console.error("DEBUG: Error in DELETE /events/:id:", error.message);
         res.status(statusCode).json({ message: error.message });
     }
 });
