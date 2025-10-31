@@ -20,6 +20,11 @@ interface AuthRequest extends Request {
 
 const router = express.Router();
 
+const toArray = (param: any): string[] | undefined => {
+  if (!param) return undefined;
+  return Array.isArray(param) ? param : [param];
+};
+
 router.post(
   "/",
   authenticateJWT,
@@ -76,25 +81,27 @@ router.get(
       const search = (req.query.search as string) || "";
       const searchField = (req.query.searchField as string) || "full_name";
 
-      const spiritualStatus = req.query.spiritualStatus as string[] | string | undefined;
-      const job_name = req.query.job_name as string[] | string | undefined;
-      const last_education_level = req.query.last_education_level as string[] | string | undefined;
-      const is_qing_kou = req.query.is_qing_kou as string[] | string | undefined;
-      const gender = req.query.gender as string[] | string | undefined;
-      const blood_type = req.query.blood_type as string[] | string | undefined;
+      const spiritualStatus = req.query['spiritualStatus[]'];
+      const job_name = req.query['job_name[]'];
+      const last_education_level = req.query['last_education_level[]'];
+      const is_qing_kou = req.query['is_qing_kou[]'];
+      const gender = req.query['gender[]'];
+      const blood_type = req.query['blood_type[]'];
 
-      const spiritualStatusArray = Array.isArray(spiritualStatus) ? spiritualStatus : spiritualStatus ? [spiritualStatus] : undefined;
-      const jobNameArray = Array.isArray(job_name) ? job_name : job_name ? [job_name] : undefined;
-      const educationLevelArray = Array.isArray(last_education_level) ? last_education_level : last_education_level ? [last_education_level] : undefined;
-      const qingKouArray = Array.isArray(is_qing_kou) ? is_qing_kou : is_qing_kou ? [is_qing_kou] : undefined;
-      const genderArray = Array.isArray(gender) ? gender : gender ? [gender] : undefined;
-      const bloodTypeArray = Array.isArray(blood_type) ? blood_type : blood_type ? [blood_type] : undefined;
+      const spiritualStatusArray = toArray(spiritualStatus);
+      const jobNameArray = toArray(job_name);
+      const educationLevelArray = toArray(last_education_level);
+      const qingKouArray = toArray(is_qing_kou);
+      const genderArray = toArray(gender);
+      const bloodTypeArray = toArray(blood_type);
 
       let userArea: Korwil | undefined;
       if (req.userScope === "wilayah" && req.userArea) {
         userArea = req.userArea;
       } else if (req.user.role !== "Super Admin" && req.user.area) {
         userArea = req.user.area as Korwil;
+      } else {
+        console.log("No area filter applied (Super Admin or no area specified)");
       }
 
       const fetchOptions = {
