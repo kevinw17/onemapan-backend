@@ -106,100 +106,62 @@ export const removeQiuDao = async (
 interface QiudaoPaginationOptions {
   skip: number;
   limit: number;
-  search: string;
-  searchField: string;
-  area?: Korwil;
+  search?: string[];
+  searchField?: string[];
+  location_name?: string[];
+  location_mandarin_name?: string[];
+  dian_chuan_shi_name?: string[];
+  dian_chuan_shi_mandarin_name?: string[];
+  yin_shi_qd_name?: string[];
+  yin_shi_qd_mandarin_name?: string[];
+  bao_shi_qd_name?: string[];
+  bao_shi_qd_mandarin_name?: string[];
   userId?: number;
+  userArea?: Korwil; // Tambahkan userArea untuk filter wilayah
 }
 
 export const getQiudaosPaginated = async ({
   skip,
   limit,
-  search,
-  searchField,
-  area,
+  search = [],
+  searchField = [],
+  location_name = [],
+  location_mandarin_name = [],
+  dian_chuan_shi_name = [],
+  dian_chuan_shi_mandarin_name = [],
+  yin_shi_qd_name = [],
+  yin_shi_qd_mandarin_name = [],
+  bao_shi_qd_name = [],
+  bao_shi_qd_mandarin_name = [],
   userId,
+  userArea, // Tambahkan ke parameter
 }: QiudaoPaginationOptions): Promise<{
   data: QiuDaoWithRelations[];
   total: number;
 }> => {
-  const nestedFields: Record<string, Prisma.QiuDaoWhereInput> = {
-    "qiu_dao_location.locality": {
-      qiu_dao_location: {
-        locality: {
-          name: {
-            contains: search,
-            mode: "insensitive",
-          },
-        },
-      },
-    },
-    "qiu_dao_location.district": {
-      qiu_dao_location: {
-        locality: {
-          district: {
-            name: {
-              contains: search,
-              mode: "insensitive",
-            },
-          },
-        },
-      },
-    },
-    "qiu_dao_location.city": {
-      qiu_dao_location: {
-        locality: {
-          district: {
-            city: {
-              name: {
-                contains: search,
-                mode: "insensitive",
-              },
-            },
-          },
-        },
-      },
-    },
-    "qiu_dao_location.province": {
-      qiu_dao_location: {
-        locality: {
-          district: {
-            city: {
-              province: {
-                name: {
-                  contains: search,
-                  mode: "insensitive",
-                },
-              },
-            },
-          },
-        },
-      },
-    },
-    "dian_chuan_shi.name": {
-      dian_chuan_shi: {
-        name: {
-          contains: search,
-          mode: "insensitive",
-        },
-      },
-    },
-    "dian_chuan_shi.mandarin_name": {
-      dian_chuan_shi: {
-        mandarin_name: {
-          contains: search,
-          mode: "insensitive",
-        },
-      },
-    },
-  };
+  console.log("[getQiudaosPaginated] Input:", {
+    skip,
+    limit,
+    search,
+    searchField,
+    location_name,
+    location_mandarin_name,
+    dian_chuan_shi_name,
+    dian_chuan_shi_mandarin_name,
+    yin_shi_qd_name,
+    yin_shi_qd_mandarin_name,
+    bao_shi_qd_name,
+    bao_shi_qd_mandarin_name,
+    userId,
+    userArea,
+  });
 
-  let where: Prisma.QiuDaoWhereInput = {};
+  const filters: Prisma.QiuDaoWhereInput[] = [];
 
-  const effectiveSearchField = nestedFields[searchField] ? searchField : null;
-  if (effectiveSearchField) {
-    where = nestedFields[effectiveSearchField];
-  } else if (search) {
+  // 1. Basic search (search + searchField)
+  search.forEach((s, i) => {
+    const field = searchField[i] || "qiu_dao_mandarin_name";
+    
     const searchableFields = [
       "qiu_dao_name",
       "qiu_dao_mandarin_name",
@@ -207,60 +169,66 @@ export const getQiudaosPaginated = async ({
       "lunar_month",
       "lunar_day",
       "lunar_shi_chen_time",
+      "yin_shi_qd_name",
+      "yin_shi_qd_mandarin_name",
+      "bao_shi_qd_name",
+      "bao_shi_qd_mandarin_name",
     ];
 
-    const field = searchableFields.includes(searchField)
-      ? (searchField as keyof Prisma.QiuDaoWhereInput)
-      : "qiu_dao_mandarin_name";
+    if (searchableFields.includes(field)) {
+      filters.push({ [field]: { contains: s, mode: "insensitive" } });
+    } else if (field === "dian_chuan_shi.name") {
+      filters.push({ dian_chuan_shi: { name: { contains: s, mode: "insensitive" } } });
+    } else if (field === "dian_chuan_shi.mandarin_name") {
+      filters.push({ dian_chuan_shi: { mandarin_name: { contains: s, mode: "insensitive" } } });
+    }
+  });
 
-    where = {
-      [field]: {
-        contains: search,
-        mode: "insensitive",
-      },
-    };
+  // === 2. MULTIPLE FILTERS (checkbox) ===
+  if (location_name.length > 0) {
+    filters.push({ qiu_dao_location: { location_name: { in: location_name } } });
+  }
+  if (location_mandarin_name.length > 0) {
+    filters.push({ qiu_dao_location: { location_mandarin_name: { in: location_mandarin_name } } });
+  }
+  if (dian_chuan_shi_name.length > 0) {
+    filters.push({ dian_chuan_shi: { name: { in: dian_chuan_shi_name } } });
+  }
+  if (dian_chuan_shi_mandarin_name.length > 0) {
+    filters.push({ dian_chuan_shi: { mandarin_name: { in: dian_chuan_shi_mandarin_name } } });
+  }
+  if (yin_shi_qd_name.length > 0) {
+    filters.push({ yin_shi_qd_name: { in: yin_shi_qd_name } });
+  }
+  if (yin_shi_qd_mandarin_name.length > 0) {
+    filters.push({ yin_shi_qd_mandarin_name: { in: yin_shi_qd_mandarin_name } });
+  }
+  if (bao_shi_qd_name.length > 0) {
+    filters.push({ bao_shi_qd_name: { in: bao_shi_qd_name } });
+  }
+  if (bao_shi_qd_mandarin_name.length > 0) {
+    filters.push({ bao_shi_qd_mandarin_name: { in: bao_shi_qd_mandarin_name } });
   }
 
-  const filters: Prisma.QiuDaoWhereInput[] = [where];
-
-  const combinedFilter: Prisma.QiuDaoWhereInput = {};
-
-  if (area) {
-    combinedFilter.qiu_dao_location = {
-      area,
-    };
-  }
-
+  // === 3. SCOPE: self ===
   if (userId) {
-    combinedFilter.qiu_dao_id = {
-      in: await prisma.user.findMany({
-        where: { user_info_id: userId },
-        select: { qiu_dao_id: true },
-      }).then(users => users.map(u => u.qiu_dao_id).filter(id => id !== null) as number[]),
-    };
+    const ids = await prisma.user
+      .findMany({ where: { user_info_id: userId }, select: { qiu_dao_id: true } })
+      .then(users => users.map(u => u.qiu_dao_id).filter((id): id is number => id !== null));
+    if (ids.length > 0) {
+      filters.push({ qiu_dao_id: { in: ids } });
+    } else {
+      filters.push({ qiu_dao_id: { equals: -1 } });
+    }
   }
 
-  if (Object.keys(combinedFilter).length > 0) {
-    filters.push(combinedFilter);
+  // === 4. FILTER BY AREA (Admin wilayah) ===
+  if (userArea) {
+    filters.push({ qiu_dao_location: { area: userArea } });
   }
 
-  where = filters.length > 1 ? { AND: filters } : filters[0] || {};
-
-  const locationInclude = {
-    locality: {
-      include: {
-        district: {
-          include: {
-            city: {
-              include: {
-                province: true,
-              },
-            },
-          },
-        },
-      },
-    },
-  };
+  const where = filters.length > 0 ? { AND: filters } : {};
+  console.log("[getQiudaosPaginated] WHERE:", JSON.stringify(where, null, 2));
 
   const [data, total] = await Promise.all([
     prisma.qiuDao.findMany({
@@ -270,12 +238,23 @@ export const getQiudaosPaginated = async ({
       include: {
         dian_chuan_shi: true,
         qiu_dao_location: {
-          include: locationInclude,
+          include: {
+            locality: {
+              include: {
+                district: {
+                  include: {
+                    city: { include: { province: true } },
+                  },
+                },
+              },
+            },
+          },
         },
       },
     }),
     prisma.qiuDao.count({ where }),
   ]);
 
+  console.log(`[getQiudaosPaginated] Result: ${data.length} items, total: ${total}`);
   return { data, total };
 };
