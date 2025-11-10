@@ -10,10 +10,6 @@ export const findFotangById = async (id: number) => {
 };
 
 export const createFotang = async (data: Prisma.FotangCreateInput) => {
-    if (!data.location_name || !data.locality?.connect?.id) {
-        throw new Error("Data fotang tidak lengkap");
-    }
-
     return await fotangRepo.createFotang(data);
 };
 

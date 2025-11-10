@@ -122,7 +122,7 @@ model UserCredential {
 }
 
 model Fotang {
-  fotang_id              Int       @id @default(autoincrement())
+  fotang_id              Int       @id
   location_name          String    @db.VarChar(250)
   location_mandarin_name String?   @db.VarChar(20)
   latitude               Int?
@@ -138,13 +138,21 @@ model Fotang {
   updated_at             DateTime? @updatedAt
 }
 
+model Institution {
+  institution_id                Int     @id @default(autoincrement())
+  institution_name              String  @db.VarChar(250)
+  institution_leader            String  @db.VarChar(250)
+  institution_secretary_general String? @db.VarChar(250)
+}
+
 model DianChuanShi {
-  id            Int      @id
-  name          String?  @db.VarChar(250)
-  mandarin_name String?  @db.VarChar(4)
-  area          Korwil
-  is_fuwuyuan   Boolean?
-  qiuDaos       QiuDao[] @relation("DianChuanShiRelation")
+  id             Int       @id
+  name           String?   @db.VarChar(250)
+  mandarin_name  String?   @db.VarChar(4)
+  area           Korwil
+  is_fuwuyuan    Boolean?
+  ling_ming_time DateTime?
+  qiuDaos        QiuDao[]  @relation("DianChuanShiRelation")
 }
 
 model SpiritualUser {
@@ -266,6 +274,6 @@ enum EventType {
   Hari_Besar
   Peresmian
   Regular
-  AdHoc
+  Lembaga
   Seasonal
 }
