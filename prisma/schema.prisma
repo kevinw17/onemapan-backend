@@ -139,7 +139,7 @@ model Fotang {
 }
 
 model Institution {
-  institution_id                Int     @id @default(autoincrement())
+  institution_id                Int     @id
   institution_name              String  @db.VarChar(250)
   institution_leader            String  @db.VarChar(250)
   institution_secretary_general String? @db.VarChar(250)
