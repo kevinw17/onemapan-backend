@@ -1,13 +1,14 @@
+// src/event/event.controller.ts
 import { Router, Request, Response } from "express";
 import {
-    getEvents,
-    getEvent,
-    createNewEvent,
-    updateExistingEvent,
-    removeEvent,
-    getFilteredEvents,
+  getEvents,
+  getEvent,
+  createNewEvent,
+  updateExistingEvent,
+  removeEvent,
+  getFilteredEvents,
 } from "./event.service";
-import { EventType, Korwil } from "@prisma/client";
+import { EventType, Korwil, EventCategory } from "@prisma/client";
 import { ExtendedJwtPayload, authenticateJWT } from "../middleware/authentication";
 import multer from "multer";
 import { v4 as uuidv4 } from "uuid";
@@ -15,416 +16,347 @@ import path from "path";
 import fs from "fs";
 
 interface AuthRequest extends Request {
-    user?: ExtendedJwtPayload;
+  user?: ExtendedJwtPayload;
 }
 
 const router = Router();
 
-const uploadPath = path.join(__dirname, "../../public/uploads");
+const uploadPath = path.join(__dirname, "../../public/uploads"); // INI YANG BENAR!
 
 const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        try {
-            if (!fs.existsSync(uploadPath)) {
-                fs.mkdirSync(uploadPath, { recursive: true });
-            }
-            fs.accessSync(uploadPath, fs.constants.W_OK);
-            cb(null, uploadPath);
-        } catch (err) {
-        }
-    },
-    filename: (req, file, cb) => {
-        const extension = file.mimetype === "image/jpeg" ? "jpg" : "png";
-        const filename = `${uuidv4()}.${extension}`;
-        cb(null, filename);
-    },
+  destination: (req, file, cb) => {
+    try {
+      if (!fs.existsSync(uploadPath)) {
+        fs.mkdirSync(uploadPath, { recursive: true });
+      }
+      fs.accessSync(uploadPath, fs.constants.W_OK);
+      cb(null, uploadPath);
+    } catch (err) {
+      cb(err as Error, uploadPath);
+    }
+  },
+  filename: (req, file, cb) => {
+    const extension = file.mimetype === "image/jpeg" ? "jpg" : "png";
+    const filename = `${uuidv4()}.${extension}`;
+    cb(null, filename);
+  },
 });
 
 const upload = multer({
-    storage,
-    limits: { fileSize: 5 * 1024 * 1024 },
-    fileFilter: (req, file, cb) => {
-        const allowedTypes = ["image/jpeg", "image/png"];
-        if (!allowedTypes.includes(file.mimetype)) {
-            return cb(new Error("Hanya file JPG dan PNG yang diperbolehkan"));
-        }
-        cb(null, true);
-    },
-});
-
-router.post("/upload", authenticateJWT, upload.single("file"), async (req: AuthRequest, res: Response) => {
-    try {
-        if (!req.file) {
-            const error = new Error("Tidak ada file yang diunggah");
-            (error as any).statusCode = 400;
-            throw error;
-        }
-        const { filename, path: filePath, size } = req.file;
-        try {
-            const buffer = fs.readFileSync(filePath);
-        } catch (err) {
-            console.error("Error reading saved file:", err);
-        }
-        const baseUrl = process.env.SERVER_BASE_URL;
-        if (!baseUrl) {
-            const error = new Error("Server configuration error");
-            (error as any).statusCode = 500;
-            throw error;
-        }
-        const url = `${baseUrl}/uploads/${filename}`;
-        res.status(200).json({ url });
-    } catch (error: any) {
-        const statusCode = error.statusCode || 500;
-        res.status(statusCode).json({ message: error.message });
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ["image/jpeg", "image/png"];
+    if (!allowedTypes.includes(file.mimetype)) {
+      return cb(new Error("Hanya file JPG dan PNG yang diperbolehkan"));
     }
+    cb(null, true);
+  },
 });
 
+// === GET ALL EVENTS ===
 router.get("/", authenticateJWT, async (req: AuthRequest, res: Response) => {
-    try {
-        const events = await getEvents();
-        let filteredEvents = events;
-        if (req.user!.role !== "Super Admin") {
-            const userArea = req.user!.area;
-            if (userArea) {
-                filteredEvents = events.filter(event => event.area === userArea || event.area === null);
-            } else {
-                filteredEvents = events.filter(event => event.area === null);
-            }
-        } 
+  try {
+    const events = await getEvents();
 
-        res.status(200).json(filteredEvents);
-    } catch (error: any) {
-        const statusCode = error.statusCode || 500;
-        res.status(statusCode).json({ message: error.message });
+    if (req.user!.role !== "Super Admin") {
+      const userArea = req.user!.area as Korwil | null;
+      const filteredEvents = events.filter(event => {
+        const eventArea = event.fotang?.area ?? event.eventLocation?.area ?? null;
+        return eventArea === null || eventArea === userArea;
+      });
+      res.status(200).json(filteredEvents); // HAPUS return
+    } else {
+      res.status(200).json(events); // HAPUS return
     }
+  } catch (error: any) {
+    res.status(error.statusCode || 500).json({ message: error.message });
+  }
 });
 
+// === GET FILTERED EVENTS ===
 router.get("/filtered", authenticateJWT, async (req: AuthRequest, res: Response) => {
-    try {
-        const { event_type, area, is_recurring, startDate, endDate } = req.query;
+  try {
+    const { event_type, area, is_recurring, startDate, endDate, category, province_id, city_id} = req.query;
 
-        const validEventTypes = [
-            "Regular",
-            "Hari_Besar",
-            "AdHoc",
-            "Anniversary",
-            "Peresmian",
-            "Seasonal",
-        ];
-        const validAreas = ["Korwil_1", "Korwil_2", "Korwil_3", "Korwil_4", "Korwil_5", "Korwil_6"];
+    const validEventTypes = ["Anniversary", "Hari_Besar", "Peresmian", "Regular", "Lembaga", "Seasonal"];
+    const validAreas = ["Korwil_1", "Korwil_2", "Korwil_3", "Korwil_4", "Korwil_5", "Korwil_6"];
 
-        let eventTypeParam: EventType | EventType[] | undefined;
-        if (event_type) {
-            if (typeof event_type === "string") {
-                const eventTypes = event_type.split(",").filter(type => validEventTypes.includes(type));
-                if (eventTypes.length === 0) {
-                    throw new Error("event_type tidak valid");
-                }
-                eventTypeParam = eventTypes.length === 1 ? eventTypes[0] as EventType : eventTypes as EventType[];
-            } else if (Array.isArray(event_type)) {
-                const eventTypes = event_type
-                    .filter(type => typeof type === "string" && validEventTypes.includes(type))
-                    .map(type => type as EventType);
-                if (eventTypes.length === 0) {
-                    throw new Error("event_type tidak valid");
-                }
-                eventTypeParam = eventTypes;
-            } else {
-                throw new Error("Format event_type tidak valid");
-            }
-        }
-
-        let areaParam: Korwil | Korwil[] | null | undefined = undefined;
-        if (req.user!.role !== "Super Admin") {
-            const userArea = req.user!.area;
-            if (userArea) {
-                areaParam = userArea as Korwil;
-                if (area && area !== userArea && area !== "nasional" && area !== "null") {
-                    areaParam = userArea as Korwil; 
-                }
-            } else {
-                areaParam = null;
-            }
-        } else {
-            if (area !== undefined) {
-                if (typeof area === "string" && (area === "null" || area === "" || area === "nasional")) {
-                    areaParam = null;
-                } else if (typeof area === "string") {
-                    const areas = area.split(",").filter(a => validAreas.includes(a)) as Korwil[];
-                    if (areas.length === 0) {
-                        throw new Error("area tidak valid");
-                    }
-                    areaParam = areas;
-                } else if (Array.isArray(area)) {
-                    const areas = area
-                        .filter(a => typeof a === "string" && validAreas.includes(a))
-                        .map(a => a as Korwil);
-                    if (areas.length === 0) {
-                        throw new Error("area tidak valid");
-                    }
-                    areaParam = areas;
-                } else {
-                    throw new Error("Format area tidak valid");
-                }
-            }
-        }
-
-        let isRecurringParam: boolean | boolean[] | undefined;
-        if (is_recurring !== undefined) {
-            if (typeof is_recurring === "string") {
-                const values = is_recurring
-                    .split(",")
-                    .map(val => val.trim().toLowerCase() === "true" || val.trim().toLowerCase() === "false" ? val.trim().toLowerCase() === "true" : null)
-                    .filter((val): val is boolean => val !== null);
-                if (values.length === 0) {
-                    throw new Error("is_recurring tidak valid");
-                }
-                isRecurringParam = values.length === 1 ? values[0] : values;
-            } else if (Array.isArray(is_recurring)) {
-                const values = is_recurring
-                    .map(val => typeof val === "string" ? (val.trim().toLowerCase() === "true" || val.trim().toLowerCase() === "false" ? val.trim().toLowerCase() === "true" : null) : null)
-                    .filter((val): val is boolean => val !== null);
-                if (values.length === 0) {
-                    throw new Error("is_recurring tidak valid");
-                }
-                isRecurringParam = values;
-            } else {
-                throw new Error("Format is_recurring tidak valid");
-            }
-        }
-
-        const events = await getFilteredEvents({
-            event_type: eventTypeParam,
-            area: areaParam,
-            is_recurring: isRecurringParam,
-            startDate: startDate ? startDate.toString() : undefined,
-            endDate: endDate ? endDate.toString() : undefined,
-        });
-
-        res.status(200).json(events);
-    } catch (error: any) {
-        const statusCode = error.statusCode || 500;
-        res.status(statusCode).json({ message: error.message });
+    let eventTypeParam: EventType | EventType[] | undefined;
+    if (event_type) {
+      const types = Array.isArray(event_type) ? event_type : (event_type as string).split(",");
+      const valid = types.filter(t => validEventTypes.includes(t as any)) as EventType[];
+      if (valid.length === 0) throw { message: "event_type tidak valid", statusCode: 400 };
+      eventTypeParam = valid.length === 1 ? valid[0] : valid;
     }
+
+    let areaParam: Korwil | Korwil[] | undefined;
+    if (req.user!.role !== "Super Admin") {
+      const userArea = req.user!.area as Korwil | null;
+      areaParam = userArea ?? undefined;
+    } else if (area) {
+      const areas = Array.isArray(area) ? area : (area as string).split(",");
+      const valid = areas.filter(a => validAreas.includes(a as any)) as Korwil[];
+      if (valid.length === 0) throw { message: "area tidak valid", statusCode: 400 };
+      areaParam = valid.length === 1 ? valid[0] : valid;
+    }
+
+    let isRecurringParam: boolean | undefined;
+    if (is_recurring !== undefined) {
+      const val = is_recurring.toString().toLowerCase();
+      if (val === "true") isRecurringParam = true;
+      else if (val === "false") isRecurringParam = false;
+      else throw { message: "is_recurring harus true atau false", statusCode: 400 };
+    }
+
+    const events = await getFilteredEvents({
+      event_type: eventTypeParam,
+      area: areaParam,
+      is_recurring: isRecurringParam,
+      startDate: startDate?.toString(),
+      endDate: endDate?.toString(),
+      category: category
+        ? (Array.isArray(category) ? category : [category]).map(c => c as EventCategory)
+        : undefined,
+      province_id: province_id
+        ? Array.isArray(province_id)
+          ? province_id.map(String)
+          : province_id.toString().split(",")
+        : undefined,
+      city_id: city_id
+        ? Array.isArray(city_id)
+          ? city_id.map(String)
+          : city_id.toString().split(",")
+        : undefined,
+    });
+    res.status(200).json(events); // HAPUS return
+  } catch (error: any) {
+    res.status(error.statusCode || 500).json({ message: error.message });
+  }
 });
 
+// === GET SINGLE EVENT ===
 router.get("/:eventId", authenticateJWT, async (req: AuthRequest, res: Response) => {
-    try {
-        const event = await getEvent(parseInt(req.params.eventId));
-        if (!event) {
-            res.status(404).json({ message: "Event tidak ditemukan" });
-            return;
-        }
-        if (req.user!.role !== "Super Admin") {
-            const userArea = req.user!.area;
-            if (userArea) {
-                if (event.area !== null && event.area !== userArea) {
-                    res.status(403).json({ message: "Akses ditolak: Event tidak berada di wilayah Anda" });
-                    return;
-                }
-            } else {
-                if (event.area !== null) {
-                    res.status(403).json({ message: "Akses ditolak: Anda hanya dapat melihat event nasional" });
-                    return;
-                }
-            }
-        }
-        res.status(200).json(event);
-    } catch (error: any) {
-        const statusCode = error.statusCode || 500;
-        res.status(statusCode).json({ message: error.message });
+  try {
+    const event = await getEvent(parseInt(req.params.eventId));
+    if (!event) {
+      res.status(404).json({ message: "Event tidak ditemukan" });
+      return; // INI BOLEH
     }
+
+    if (req.user!.role !== "Super Admin") {
+      const userArea = req.user!.area as Korwil | null;
+      const eventArea = event.fotang?.area ?? event.eventLocation?.area ?? null;
+
+      if (eventArea !== null && eventArea !== userArea) {
+        res.status(403).json({ message: "Akses ditolak: Event tidak di wilayah Anda" });
+        return; // INI BOLEH
+      }
+    }
+
+    res.status(200).json(event); // HAPUS return
+  } catch (error: any) {
+    res.status(error.statusCode || 500).json({ message: error.message });
+  }
 });
 
+// === CREATE EVENT ===
 router.post("/", authenticateJWT, async (req: AuthRequest, res: Response) => {
-    try {
-        if (!req.body.localityId || isNaN(parseInt(req.body.localityId))) {
-            const error = new Error("localityId wajib diisi dan harus berupa angka");
-            (error as any).statusCode = 400;
-            throw error;
-        }
-        if (!req.body.provinceId || isNaN(parseInt(req.body.provinceId))) {
-            const error = new Error("provinceId wajib diisi dan harus berupa angka");
-            (error as any).statusCode = 400;
-            throw error;
-        }
-        if (!req.body.cityId || isNaN(parseInt(req.body.cityId))) {
-            const error = new Error("cityId wajib diisi dan harus berupa angka");
-            (error as any).statusCode = 400;
-            throw error;
-        }
-        if (!req.body.districtId || isNaN(parseInt(req.body.districtId))) {
-            const error = new Error("districtId wajib diisi dan harus berupa angka");
-            (error as any).statusCode = 400;
-            throw error;
-        }
-        if (!req.body.occurrences || !Array.isArray(req.body.occurrences) || req.body.occurrences.length === 0) {
-            const error = new Error("Setidaknya satu occurrence wajib diisi");
-            (error as any).statusCode = 400;
-            throw error;
-        }
-        if (req.body.area !== null && req.body.area !== undefined) {
-            const validAreas = ["Korwil_1", "Korwil_2", "Korwil_3", "Korwil_4", "Korwil_5", "Korwil_6"];
-            if (!validAreas.includes(req.body.area)) {
-                const error = new Error("Area tidak valid. Harus salah satu dari: " + validAreas.join(", ") + " atau null untuk Nasional");
-                (error as any).statusCode = 400;
-                throw error;
-            }
-            if (req.user!.role !== "Super Admin" && req.body.area !== req.user!.area && req.body.area !== null) {
-                const error = new Error("Akses ditolak: Anda hanya dapat membuat event untuk wilayah Anda atau nasional");
-                (error as any).statusCode = 403;
-                throw error;
-            }
-        }
+  try {
+    const {
+      category,
+      event_type,
+      event_name,
+      event_mandarin_name,
+      is_in_fotang,
+      fotangId,
+      cityId,
+      location_name,
+      street,
+      postal_code,
+      area,
+      institutionId,
+      lunar_sui_ci_year,
+      lunar_month,
+      lunar_day,
+      is_recurring,
+      description,
+      poster_s3_bucket_link,
+      occurrences,
+    } = req.body;
 
-        for (const occ of req.body.occurrences) {
-            if (occ.greg_end_date && new Date(occ.greg_end_date) <= new Date(occ.greg_occur_date)) {
-                const error = new Error("greg_end_date harus setelah greg_occur_date untuk setiap occurrence");
-                (error as any).statusCode = 400;
-                throw error;
-            }
-        }
+    if (!event_name) throw { message: "event_name required", statusCode: 400 };
+    if (!occurrences || !Array.isArray(occurrences) || occurrences.length === 0)
+      throw { message: "At least one occurrence required", statusCode: 400 };
 
-        const event = await createNewEvent({
-            event_type: req.body.event_type,
-            event_name: req.body.event_name,
-            event_mandarin_name: req.body.event_mandarin_name || null,
-            locationData: {
-                location_name: req.body.location_name,
-                location_mandarin_name: req.body.location_mandarin_name || null,
-                localityId: parseInt(req.body.localityId),
-                provinceId: parseInt(req.body.provinceId),
-                cityId: parseInt(req.body.cityId),
-                districtId: parseInt(req.body.districtId),
-                street: req.body.street || null,
-                postal_code: req.body.postal_code || null,
-                country_iso: req.body.country_iso || "IDN",
-                latitude: req.body.latitude ? Number(req.body.latitude) : null,
-                longitude: req.body.longitude ? Number(req.body.longitude) : null,
-            },
-            lunar_sui_ci_year: req.body.lunar_sui_ci_year,
-            lunar_month: req.body.lunar_month,
-            lunar_day: req.body.lunar_day,
-            is_recurring: req.body.is_recurring || false,
-            description: req.body.description || null,
-            poster_s3_bucket_link: req.body.poster_s3_bucket_link || null,
-            area: req.body.area,
-            occurrences: req.body.occurrences.map((occ: any) => ({
-                greg_occur_date: new Date(occ.greg_occur_date),
-                greg_end_date: occ.greg_end_date ? new Date(occ.greg_end_date) : null,
-            })),
-        });
-        res.status(201).json(event);
-    } catch (error: any) {
-        const statusCode = error.statusCode || 500;
-        res.status(statusCode).json({ message: error.message });
+    if (is_in_fotang && !fotangId) throw { message: "fotangId required", statusCode: 400 };
+    if (!is_in_fotang && (!cityId || !location_name || !area))
+      throw { message: "cityId, location_name, area required", statusCode: 400 };
+
+    if (area) {
+      const validAreas = ["Korwil_1", "Korwil_2", "Korwil_3", "Korwil_4", "Korwil_5", "Korwil_6"];
+      if (!validAreas.includes(area))
+        throw { message: "Area tidak valid", statusCode: 400 };
+
+      if (req.user!.role !== "Super Admin" && area !== req.user!.area)
+        throw { message: "Tidak boleh buat event di luar wilayah Anda", statusCode: 403 };
     }
+
+    const event = await createNewEvent({
+      category,
+      event_type,
+      event_name,
+      event_mandarin_name: event_mandarin_name ?? null,
+      is_in_fotang: is_in_fotang ?? true,
+      fotangId: fotangId ? parseInt(fotangId) : undefined,
+      cityId: cityId ? parseInt(cityId) : undefined,
+      location_name,
+      street: street ?? null,
+      postal_code: postal_code ?? null,
+      area: area ? (area as Korwil) : undefined,
+      institutionId: institutionId ? parseInt(institutionId) : undefined,
+      lunar_sui_ci_year: lunar_sui_ci_year ?? null,
+      lunar_month: lunar_month ?? null,
+      lunar_day: lunar_day ?? null,
+      is_recurring: is_recurring ?? false,
+      description: description ?? null,
+      poster_s3_bucket_link: poster_s3_bucket_link ?? null,
+      occurrences: occurrences.map((o: any) => ({
+        greg_occur_date: new Date(o.greg_occur_date),
+        greg_end_date: o.greg_end_date ? new Date(o.greg_end_date) : null,
+      })),
+    });
+
+    res.status(201).json(event); // HAPUS return
+  } catch (error: any) {
+    res.status(error.statusCode || 500).json({ message: error.message });
+  }
 });
 
+// === UPDATE EVENT ===
 router.patch("/:id", authenticateJWT, async (req: AuthRequest, res: Response) => {
-    try {
-        if (req.body.localityId && isNaN(parseInt(req.body.localityId))) {
-            const error = new Error("localityId harus berupa angka");
-            (error as any).statusCode = 400;
-            throw error;
-        }
-        if (req.body.provinceId && isNaN(parseInt(req.body.provinceId))) {
-            const error = new Error("provinceId harus berupa angka");
-            (error as any).statusCode = 400;
-            throw error;
-        }
-        if (req.body.cityId && isNaN(parseInt(req.body.cityId))) {
-            const error = new Error("cityId harus berupa angka");
-            (error as any).statusCode = 400;
-            throw error;
-        }
-        if (req.body.districtId && isNaN(parseInt(req.body.districtId))) {
-            const error = new Error("districtId harus berupa angka");
-            (error as any).statusCode = 400;
-            throw error;
-        }
-        if (req.body.occurrences && (!Array.isArray(req.body.occurrences) || req.body.occurrences.length === 0)) {
-            const error = new Error("Setidaknya satu occurrence wajib diisi jika occurrences disediakan");
-            (error as any).statusCode = 400;
-            throw error;
-        }
-        if (req.body.area !== undefined) {
-            const validAreas = ["Korwil_1", "Korwil_2", "Korwil_3", "Korwil_4", "Korwil_5", "Korwil_6"];
-            if (req.body.area !== null && !validAreas.includes(req.body.area)) {
-                const error = new Error("Area tidak valid. Harus salah satu dari: " + validAreas.join(", ") + " atau null untuk Nasional");
-                (error as any).statusCode = 400;
-                throw error;
-            }
-            if (req.user!.role !== "Super Admin" && req.body.area !== req.user!.area && req.body.area !== null) {
-                const error = new Error("Akses ditolak: Anda hanya dapat mengupdate event untuk wilayah Anda atau nasional");
-                (error as any).statusCode = 403;
-                throw error;
-            }
-        }
-        if (req.body.occurrences) {
-            for (const occ of req.body.occurrences) {
-                if (occ.greg_end_date && new Date(occ.greg_end_date) <= new Date(occ.greg_occur_date)) {
-                    const error = new Error("greg_end_date harus setelah greg_occur_date untuk setiap occurrence");
-                    (error as any).statusCode = 400;
-                    throw error;
-                }
-            }
-        }
-
-        const event = await updateExistingEvent(parseInt(req.params.id), {
-            event_type: req.body.event_type,
-            event_name: req.body.event_name,
-            event_mandarin_name: req.body.event_mandarin_name || null,
-            locationId: req.body.locationId ? parseInt(req.body.locationId) : undefined,
-            locationData: req.body.location_name ? {
-                location_name: req.body.location_name,
-                location_mandarin_name: req.body.location_mandarin_name || null,
-                localityId: req.body.localityId ? parseInt(req.body.localityId) : undefined,
-                provinceId: req.body.provinceId ? parseInt(req.body.provinceId) : undefined,
-                cityId: req.body.cityId ? parseInt(req.body.cityId) : undefined,
-                districtId: req.body.districtId ? parseInt(req.body.districtId) : undefined,
-                street: req.body.street || null,
-                postal_code: req.body.postal_code || null,
-                country_iso: req.body.country_iso || "IDN",
-                latitude: req.body.latitude ? Number(req.body.latitude) : undefined,
-                longitude: req.body.longitude ? Number(req.body.longitude) : undefined,
-            } : undefined,
-            lunar_sui_ci_year: req.body.lunar_sui_ci_year,
-            lunar_month: req.body.lunar_month,
-            lunar_day: req.body.lunar_day,
-            is_recurring: req.body.is_recurring,
-            description: req.body.description || null,
-            poster_s3_bucket_link: req.body.poster_s3_bucket_link || null,
-            area: req.body.area,
-            occurrences: req.body.occurrences ? req.body.occurrences.map((occ: any) => ({
-                greg_occur_date: new Date(occ.greg_occur_date),
-                greg_end_date: occ.greg_end_date ? new Date(occ.greg_end_date) : null,
-            })) : undefined,
-        });
-        res.status(200).json(event);
-    } catch (error: any) {
-        const statusCode = error.statusCode || 500;
-        res.status(statusCode).json({ message: error.message });
+  try {
+    const eventId = parseInt(req.params.id);
+    const event = await getEvent(eventId);
+    if (!event) {
+      res.status(404).json({ message: "Event tidak ditemukan" });
+      return; // INI BOLEH
     }
+
+    const {
+      category,
+      event_type,
+      event_name,
+      event_mandarin_name,
+      is_in_fotang,
+      fotangId,
+      cityId,
+      location_name,
+      street,
+      postal_code,
+      area,
+      institutionId,
+      lunar_sui_ci_year,
+      lunar_month,
+      lunar_day,
+      is_recurring,
+      description,
+      poster_s3_bucket_link,
+      occurrences,
+      eventLocationId,
+    } = req.body;
+
+    if (area !== undefined) {
+      const validAreas = ["Korwil_1", "Korwil_2", "Korwil_3", "Korwil_4", "Korwil_5", "Korwil_6"];
+      if (area !== null && !validAreas.includes(area))
+        throw { message: "Area tidak valid", statusCode: 400 };
+
+      if (req.user!.role !== "Super Admin" && area !== null && area !== req.user!.area)
+        throw { message: "Tidak boleh ubah ke wilayah lain", statusCode: 403 };
+    }
+
+    const updated = await updateExistingEvent(eventId, {
+      category: category ? (category as EventCategory) : undefined,
+      event_type: event_type ? (event_type as EventType) : undefined,
+      event_name,
+      event_mandarin_name: event_mandarin_name ?? undefined,
+      is_in_fotang: is_in_fotang !== undefined ? is_in_fotang : undefined,
+      fotangId: fotangId ? parseInt(fotangId) : undefined,
+      cityId: cityId ? parseInt(cityId) : undefined,
+      location_name,
+      street: street ?? undefined,
+      postal_code: postal_code ?? undefined,
+      area: area !== undefined ? (area as Korwil) : undefined,
+      institutionId: institutionId ? parseInt(institutionId) : undefined,
+      lunar_sui_ci_year: lunar_sui_ci_year ?? undefined,
+      lunar_month: lunar_month ?? undefined,
+      lunar_day: lunar_day ?? undefined,
+      is_recurring: is_recurring !== undefined ? is_recurring : undefined,
+      description: description ?? undefined,
+      poster_s3_bucket_link: poster_s3_bucket_link ?? undefined,
+      occurrences: occurrences
+        ? occurrences.map((o: any) => ({
+            greg_occur_date: new Date(o.greg_occur_date),
+            greg_end_date: o.greg_end_date ? new Date(o.greg_end_date) : null,
+          }))
+        : undefined,
+      eventLocationId: eventLocationId ? parseInt(eventLocationId) : undefined,
+    });
+
+    res.status(200).json(updated); // HAPUS return
+  } catch (error: any) {
+    res.status(error.statusCode || 500).json({ message: error.message });
+  }
 });
 
+// === DELETE EVENT ===
 router.delete("/:id", authenticateJWT, async (req: AuthRequest, res: Response) => {
-    try {
-        const event = await getEvent(parseInt(req.params.id));
-        if (!event) {
-            res.status(404).json({ message: "Event tidak ditemukan" });
-            return;
-        }
-        if (req.user!.role !== "Super Admin" && event.area !== null && event.area !== req.user!.area) {
-            res.status(403).json({ message: "Akses ditolak: Anda hanya dapat menghapus event untuk wilayah Anda atau nasional" });
-            return;
-        }
-        await removeEvent(parseInt(req.params.id));
-        res.status(200).json(event);
-    } catch (error: any) {
-        const statusCode = error.statusCode || 500;
-        res.status(statusCode).json({ message: error.message });
+  try {
+    const eventId = parseInt(req.params.id);
+    const event = await getEvent(eventId);
+    if (!event) {
+      res.status(404).json({ message: "Event tidak ditemukan" });
+      return; // INI BOLEH
     }
+
+    const eventArea = event.fotang?.area ?? event.eventLocation?.area ?? null;
+    if (req.user!.role !== "Super Admin" && eventArea !== null && eventArea !== req.user!.area) {
+      res.status(403).json({ message: "Tidak boleh hapus event di luar wilayah Anda" });
+      return; // INI BOLEH
+    }
+
+    await removeEvent(eventId);
+    res.status(200).json({ message: "Event dihapus" }); // HAPUS return
+  } catch (error: any) {
+    res.status(error.statusCode || 500).json({ message: error.message });
+  }
 });
+
+// event.controller.ts — GANTI TOTAL DENGAN INI
+router.post(
+  "/upload-poster",
+  authenticateJWT,
+  upload.single("poster"),
+  (req: AuthRequest, res: Response): void => {
+    try {
+      if (!req.file) {
+        res.status(400).json({ message: "Tidak ada file yang diunggah" });
+        return;
+      }
+
+      const baseUrl = process.env.SERVER_BASE_URL?.replace(/\/$/, "");
+      if (!baseUrl) {
+        res.status(500).json({ message: "SERVER_BASE_URL tidak diset" });
+        return;
+      }
+
+      const url = `${baseUrl}/uploads/${req.file.filename}`;
+      res.json({ url });
+    } catch (error: any) {
+      console.error("Upload poster error:", error);
+      res.status(500).json({ message: error.message || "Gagal upload poster" });
+    }
+  }
+);
 
 export default router;

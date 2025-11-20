@@ -107,7 +107,6 @@ model Location {
   users_id_card_location User[]    @relation("id_card_location")
   created_at             DateTime? @default(now())
   updated_at             DateTime? @updatedAt
-  Event                  Event[]
 }
 
 model UserCredential {
@@ -136,6 +135,7 @@ model Fotang {
   QiuDao                 QiuDao[]
   created_at             DateTime? @default(now())
   updated_at             DateTime? @updatedAt
+  events                 Event[]
 }
 
 model Institution {
@@ -143,6 +143,7 @@ model Institution {
   institution_name              String  @db.VarChar(250)
   institution_leader            String  @db.VarChar(250)
   institution_secretary_general String? @db.VarChar(250)
+  events                        Event[]
 }
 
 model DianChuanShi {
@@ -184,11 +185,12 @@ model Province {
 }
 
 model City {
-  id         Int        @id @default(autoincrement())
-  name       String
-  province   Province   @relation(fields: [provinceId], references: [id])
-  provinceId Int
-  districts  District[]
+  id             Int             @id @default(autoincrement())
+  name           String
+  province       Province        @relation(fields: [provinceId], references: [id])
+  provinceId     Int
+  districts      District[]
+  eventLocations EventLocation[]
 
   @@unique([name, provinceId])
 }
@@ -215,22 +217,40 @@ model Locality {
 }
 
 model Event {
-  event_id              Int          @id @default(autoincrement())
+  event_id              Int            @id @default(autoincrement())
+  category              EventCategory
   event_type            EventType
-  event_name            String       @db.VarChar(200)
-  event_mandarin_name   String?      @db.VarChar(200)
-  location              Location     @relation(fields: [locationId], references: [location_id])
-  locationId            Int
-  lunar_sui_ci_year     String       @db.VarChar(3)
-  lunar_month           String       @db.VarChar(4)
-  lunar_day             String       @db.VarChar(4)
+  event_name            String         @db.VarChar(200)
+  event_mandarin_name   String?        @db.VarChar(200)
+  is_in_fotang          Boolean        @default(true)
+  fotangId              Int?
+  fotang                Fotang?        @relation(fields: [fotangId], references: [fotang_id])
+  eventLocationId       Int?
+  eventLocation         EventLocation? @relation(fields: [eventLocationId], references: [event_location_id])
+  institutionId         Int?
+  institution           Institution?   @relation(fields: [institutionId], references: [institution_id])
+  lunar_sui_ci_year     String?        @db.VarChar(3)
+  lunar_month           String?        @db.VarChar(4)
+  lunar_day             String?        @db.VarChar(4)
   is_recurring          Boolean
-  description           String?      @db.VarChar(1000)
-  poster_s3_bucket_link String?      @db.VarChar(250)
-  area                  Korwil?
-  created_at            DateTime?    @default(now())
-  updated_at            DateTime?    @updatedAt
+  description           String?        @db.VarChar(1000)
+  poster_s3_bucket_link String?        @db.VarChar(250)
+  created_at            DateTime?      @default(now())
+  updated_at            DateTime?      @updatedAt
   occurrences           Occurrence[]
+}
+
+model EventLocation {
+  event_location_id Int       @id @default(autoincrement())
+  location_name     String    @db.VarChar(250)
+  cityId            Int
+  city              City      @relation(fields: [cityId], references: [id])
+  street            String?   @db.VarChar(250)
+  postal_code       String?   @db.VarChar(10)
+  area              Korwil
+  events            Event[]
+  created_at        DateTime? @default(now())
+  updated_at        DateTime? @updatedAt
 }
 
 model Occurrence {
@@ -276,4 +296,9 @@ enum EventType {
   Regular
   Lembaga
   Seasonal
+}
+
+enum EventCategory {
+  Internal
+  External
 }
