@@ -21,6 +21,7 @@ interface FilterEventsInput {
   category?: EventCategory | EventCategory[];
   province_id?: string | string[];
   city_id?: string | string[];
+  institution_id?: string | string[];
 }
 
 export const getEvents = async (): Promise<EventWithRelations[]> => {
@@ -28,7 +29,7 @@ export const getEvents = async (): Promise<EventWithRelations[]> => {
 };
 
 export const getFilteredEvents = async (input: FilterEventsInput): Promise<EventWithRelations[]> => {
-  const { event_type, area, is_recurring, startDate, endDate, category, province_id, city_id } = input;
+  const { event_type, area, is_recurring, startDate, endDate, category, province_id, city_id, institution_id } = input;
 
   // VALIDASI EventType SESUAI PRISMA
   const validEventTypes = [
@@ -68,7 +69,8 @@ export const getFilteredEvents = async (input: FilterEventsInput): Promise<Event
     endDate,
     category,
     province_id,
-    city_id
+    city_id,
+    institution_id,
   });
 };
 

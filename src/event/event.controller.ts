@@ -77,7 +77,7 @@ router.get("/", authenticateJWT, async (req: AuthRequest, res: Response) => {
 // === GET FILTERED EVENTS ===
 router.get("/filtered", authenticateJWT, async (req: AuthRequest, res: Response) => {
   try {
-    const { event_type, area, is_recurring, startDate, endDate, category, province_id, city_id} = req.query;
+    const { event_type, area, is_recurring, startDate, endDate, category, province_id, city_id, institution_id } = req.query;
 
     const validEventTypes = ["Anniversary", "Hari_Besar", "Peresmian", "Regular", "Lembaga", "Seasonal"];
     const validAreas = ["Korwil_1", "Korwil_2", "Korwil_3", "Korwil_4", "Korwil_5", "Korwil_6"];
@@ -128,8 +128,13 @@ router.get("/filtered", authenticateJWT, async (req: AuthRequest, res: Response)
           ? city_id.map(String)
           : city_id.toString().split(",")
         : undefined,
+      institution_id: institution_id
+        ? Array.isArray(institution_id)
+          ? institution_id.map(String)
+          : institution_id.toString().split(",")
+        : undefined,
     });
-    res.status(200).json(events); // HAPUS return
+    res.status(200).json(events);
   } catch (error: any) {
     res.status(error.statusCode || 500).json({ message: error.message });
   }

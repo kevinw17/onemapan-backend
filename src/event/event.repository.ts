@@ -44,6 +44,7 @@ interface FilteredEventsOptions {
   category?: EventCategory | EventCategory[];
   province_id?: string | string[];
   city_id?: string | string[];
+  institution_id?: string | string[];
 }
 
 export const getAllEvents = async (): Promise<EventWithRelations[]> => {
@@ -70,6 +71,7 @@ export const getEventsFiltered = async ({
   category,
   province_id,
   city_id,
+  institution_id,
 }: FilteredEventsOptions): Promise<EventWithRelations[]> => {
   const where: Prisma.EventWhereInput = {};
 
@@ -169,6 +171,18 @@ export const getEventsFiltered = async ({
         ...(endDate && { greg_end_date: { lte: new Date(endDate) } }),
       },
     };
+  }
+
+  if (institution_id) {
+    const institutionIds = Array.isArray(institution_id)
+      ? institution_id.map(id => parseInt(id as string, 10)).filter(n => !isNaN(n))
+      : [parseInt(institution_id as string, 10)].filter(n => !isNaN(n));
+
+    if (institutionIds.length > 0) {
+      where.institution = {
+        institution_id: { in: institutionIds }
+      };
+    }
   }
 
   return await prisma.event.findMany({
