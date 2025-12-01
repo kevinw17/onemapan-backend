@@ -167,8 +167,19 @@ export const getEventsFiltered = async ({
   if (startDate || endDate) {
     where.occurrences = {
       some: {
-        ...(startDate && { greg_occur_date: { gte: new Date(startDate) } }),
-        ...(endDate && { greg_end_date: { lte: new Date(endDate) } }),
+        // Filter berdasarkan greg_occur_date (selalu ada)
+        greg_occur_date: {
+          ...(startDate && { gte: new Date(startDate) }),
+          ...(endDate && { lte: new Date(endDate) }),
+        },
+        // Kalau ada greg_end_date, pastikan tidak melebihi endDate
+        // Tapi kalau null, tetap boleh masuk (ini yang penting!)
+        ...(endDate && {
+          OR: [
+            { greg_end_date: { lte: new Date(endDate) } },
+            { greg_end_date: null },
+          ],
+        }),
       },
     };
   }
