@@ -111,7 +111,7 @@ export const fetchAllRoles = async (
 ): Promise<Role[]> => {
     const roles = await getAllRoles();
     
-    if (userRole === "Super Admin") {
+    if (userRole === "Super Admin" || userRole === "Ketua Lembaga" || userRole === "Sekjen Lembaga") {
         return roles;
     }
     

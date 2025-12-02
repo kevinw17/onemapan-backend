@@ -48,7 +48,11 @@ export const authorize = (required: PermissionCheck) => {
       let userArea: Korwil | undefined;
       let userRole = normalizedRole;
 
-      if (normalizedRole === "superadmin") {
+      if (
+        normalizedRole === "superadmin" ||
+        normalizedRole === "ketualembaga" ||
+        normalizedRole === "sekjenlembaga"
+      ) {
         const user = await prisma.user.findUnique({
           where: { user_info_id: userId },
           include: {

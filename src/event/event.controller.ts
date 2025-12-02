@@ -14,6 +14,7 @@ import multer from "multer";
 import { v4 as uuidv4 } from "uuid";
 import path from "path";
 import fs from "fs";
+import { isNationalAccessRole } from "../role/roleUtils";
 
 interface AuthRequest extends Request {
   user?: ExtendedJwtPayload;
@@ -59,7 +60,7 @@ router.get("/", authenticateJWT, async (req: AuthRequest, res: Response) => {
   try {
     const events = await getEvents();
 
-    if (req.user!.role !== "Super Admin") {
+    if (!isNationalAccessRole(req.user?.role)) {
       const userArea = req.user!.area as Korwil | null;
       const filteredEvents = events.filter(event => {
         const eventArea = event.fotang?.area ?? event.eventLocation?.area ?? null;
@@ -91,7 +92,7 @@ router.get("/filtered", authenticateJWT, async (req: AuthRequest, res: Response)
     }
 
     let areaParam: Korwil | Korwil[] | undefined;
-    if (req.user!.role !== "Super Admin") {
+    if (!isNationalAccessRole(req.user?.role)) {
       const userArea = req.user!.area as Korwil | null;
       areaParam = userArea ?? undefined;
     } else if (area) {
@@ -149,7 +150,7 @@ router.get("/:eventId", authenticateJWT, async (req: AuthRequest, res: Response)
       return; // INI BOLEH
     }
 
-    if (req.user!.role !== "Super Admin") {
+    if (!isNationalAccessRole(req.user?.role)) {
       const userArea = req.user!.area as Korwil | null;
       const eventArea = event.fotang?.area ?? event.eventLocation?.area ?? null;
 
@@ -203,7 +204,7 @@ router.post("/", authenticateJWT, async (req: AuthRequest, res: Response) => {
       if (!validAreas.includes(area))
         throw { message: "Area tidak valid", statusCode: 400 };
 
-      if (req.user!.role !== "Super Admin" && area !== req.user!.area)
+      if (!isNationalAccessRole(req.user?.role) && area !== req.user!.area)
         throw { message: "Tidak boleh buat event di luar wilayah Anda", statusCode: 403 };
     }
 
@@ -276,7 +277,7 @@ router.patch("/:id", authenticateJWT, async (req: AuthRequest, res: Response) =>
       if (area !== null && !validAreas.includes(area))
         throw { message: "Area tidak valid", statusCode: 400 };
 
-      if (req.user!.role !== "Super Admin" && area !== null && area !== req.user!.area)
+      if (!isNationalAccessRole(req.user?.role) && area !== null && area !== req.user!.area)
         throw { message: "Tidak boleh ubah ke wilayah lain", statusCode: 403 };
     }
 
@@ -325,7 +326,7 @@ router.delete("/:id", authenticateJWT, async (req: AuthRequest, res: Response) =
     }
 
     const eventArea = event.fotang?.area ?? event.eventLocation?.area ?? null;
-    if (req.user!.role !== "Super Admin" && eventArea !== null && eventArea !== req.user!.area) {
+    if (!isNationalAccessRole(req.user?.role) && eventArea !== null && eventArea !== req.user!.area) {
       res.status(403).json({ message: "Tidak boleh hapus event di luar wilayah Anda" });
       return; // INI BOLEH
     }

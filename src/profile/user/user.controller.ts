@@ -11,6 +11,7 @@ import { authorize } from "../../middleware/authorization";
 import { Korwil } from "@prisma/client";
 import prisma from "../../db";
 import { UserWithRelations } from "../../types/user";
+import { isNationalAccessRole } from "../../role/roleUtils";
 
 interface AuthRequest extends Request {
   user?: JwtPayload;
@@ -94,14 +95,15 @@ router.get(
       const qingKouArray = toArray(is_qing_kou);
       const genderArray = toArray(gender);
       const bloodTypeArray = toArray(blood_type);
-
+      
       let userArea: Korwil | undefined;
-      if (req.userScope === "wilayah" && req.userArea) {
-        userArea = req.userArea;
-      } else if (req.user.role !== "Super Admin" && req.user.area) {
-        userArea = req.user.area as Korwil;
+
+      if (!isNationalAccessRole(req.user?.role)) {
+        userArea = req.userArea || (req.user?.area as Korwil);
+        console.log(`Filter area aktif: ${userArea} (role: ${req.user?.role})`);
       } else {
-        console.log("No area filter applied (Super Admin or no area specified)");
+        userArea = undefined;
+        console.log(`Akses NASIONAL aktif untuk role: ${req.user?.role}`);
       }
 
       const fetchOptions = {

@@ -63,7 +63,11 @@ export const loginUser = async ({ username, password }: LoginInput): Promise<Log
 
   const normalizedRole = primaryRole.toLowerCase().replace(/\s+/g, "");
 
-  if (normalizedRole === "superadmin") {
+  if (
+    normalizedRole === "superadmin" ||
+    normalizedRole === "ketualembaga" ||
+    normalizedRole === "sekjenlembaga"
+  ) {
     scope = "nasional";
     area = null;
   } else {
