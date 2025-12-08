@@ -56,29 +56,30 @@ const upload = multer({
 });
 
 // === GET ALL EVENTS ===
+// === GET ALL EVENTS — SEMUA ROLE BISA LIHAT SEMUA ===
 router.get("/", authenticateJWT, async (req: AuthRequest, res: Response) => {
   try {
     const events = await getEvents();
-
-    if (!isNationalAccessRole(req.user?.role)) {
-      const userArea = req.user!.area as Korwil | null;
-      const filteredEvents = events.filter(event => {
-        const eventArea = event.fotang?.area ?? event.eventLocation?.area ?? null;
-        return eventArea === null || eventArea === userArea;
-      });
-      res.status(200).json(filteredEvents); // HAPUS return
-    } else {
-      res.status(200).json(events); // HAPUS return
-    }
+    res.status(200).json(events); // ← HAPUS SEMUA FILTER WILAYAH
   } catch (error: any) {
     res.status(error.statusCode || 500).json({ message: error.message });
   }
 });
 
-// === GET FILTERED EVENTS ===
+// === GET FILTERED EVENTS — SEMUA ROLE BISA LIHAT SEMUA ===
 router.get("/filtered", authenticateJWT, async (req: AuthRequest, res: Response) => {
   try {
-    const { event_type, area, is_recurring, startDate, endDate, category, province_id, city_id, institution_id } = req.query;
+    const {
+      event_type,
+      area,
+      is_recurring,
+      startDate,
+      endDate,
+      category,
+      province_id,
+      city_id,
+      institution_id
+    } = req.query;
 
     const validEventTypes = ["Anniversary", "Hari_Besar", "Peresmian", "Regular", "Lembaga", "Seasonal"];
     const validAreas = ["Korwil_1", "Korwil_2", "Korwil_3", "Korwil_4", "Korwil_5", "Korwil_6"];
@@ -91,11 +92,9 @@ router.get("/filtered", authenticateJWT, async (req: AuthRequest, res: Response)
       eventTypeParam = valid.length === 1 ? valid[0] : valid;
     }
 
+    // AREA TIDAK LAGI DIFILTER BERDASARKAN USER → semua bisa lihat semua
     let areaParam: Korwil | Korwil[] | undefined;
-    if (!isNationalAccessRole(req.user?.role)) {
-      const userArea = req.user!.area as Korwil | null;
-      areaParam = userArea ?? undefined;
-    } else if (area) {
+    if (area) {
       const areas = Array.isArray(area) ? area : (area as string).split(",");
       const valid = areas.filter(a => validAreas.includes(a as any)) as Korwil[];
       if (valid.length === 0) throw { message: "area tidak valid", statusCode: 400 };
@@ -135,6 +134,7 @@ router.get("/filtered", authenticateJWT, async (req: AuthRequest, res: Response)
           : institution_id.toString().split(",")
         : undefined,
     });
+
     res.status(200).json(events);
   } catch (error: any) {
     res.status(error.statusCode || 500).json({ message: error.message });
@@ -147,20 +147,10 @@ router.get("/:eventId", authenticateJWT, async (req: AuthRequest, res: Response)
     const event = await getEvent(parseInt(req.params.eventId));
     if (!event) {
       res.status(404).json({ message: "Event tidak ditemukan" });
-      return; // INI BOLEH
+      return;
     }
 
-    if (!isNationalAccessRole(req.user?.role)) {
-      const userArea = req.user!.area as Korwil | null;
-      const eventArea = event.fotang?.area ?? event.eventLocation?.area ?? null;
-
-      if (eventArea !== null && eventArea !== userArea) {
-        res.status(403).json({ message: "Akses ditolak: Event tidak di wilayah Anda" });
-        return; // INI BOLEH
-      }
-    }
-
-    res.status(200).json(event); // HAPUS return
+    res.status(200).json(event);
   } catch (error: any) {
     res.status(error.statusCode || 500).json({ message: error.message });
   }
