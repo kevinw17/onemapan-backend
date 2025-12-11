@@ -58,6 +58,22 @@ router.get(
       const bao_shi_qd_name = req.query["bao_shi_qd_name[]"];
       const bao_shi_qd_mandarin_name = req.query["bao_shi_qd_mandarin_name[]"];
 
+      let fotangId: number | undefined = undefined;
+
+      if (req.user.role === "Admin Vihara") {
+        const currentUser = await prisma.user.findUnique({
+          where: { user_info_id: req.user.user_info_id },
+          select: { qiudao: { select: { qiu_dao_location_id: true } } },
+        });
+
+        fotangId = currentUser?.qiudao?.qiu_dao_location_id || undefined;
+
+        if (!fotangId) {
+          res.status(403).json({ message: "Admin Vihara tidak terhubung ke fotang" });
+          return;
+        }
+      }
+
       const toArray = (param: any): string[] => {
         if (!param) return [];
         return Array.isArray(param) ? param.map(String) : [String(param)];
@@ -76,8 +92,9 @@ router.get(
         yin_shi_qd_mandarin_name: toArray(yin_shi_qd_mandarin_name),
         bao_shi_qd_name: toArray(bao_shi_qd_name),
         bao_shi_qd_mandarin_name: toArray(bao_shi_qd_mandarin_name),
-        userId: req.userScope === "self" && req.userRole !== "user" ? req.user.user_info_id : undefined,
-        userArea: req.userScope === "wilayah" ? req.userArea : undefined, // Tambahkan userArea untuk wilayah
+        userId: req.userScope === "self" ? req.user.user_info_id : undefined,
+        userArea: req.userScope === "wilayah" ? req.userArea : undefined,
+        fotangId,
       };
 
       const qiudaoList = await fetchAllQiudao(fetchOptions);
@@ -119,6 +136,18 @@ router.get(
         }
       }
 
+      if (req.user.role === "Admin Vihara") {
+        const currentUser = await prisma.user.findUnique({
+          where: { user_info_id: req.user.user_info_id },
+          select: { qiudao: { select: { qiu_dao_location_id: true } } },
+        });
+
+        if (qiudao.qiu_dao_location_id !== currentUser?.qiudao?.qiu_dao_location_id) {
+          res.status(403).json({ message: "Forbidden: Bukan fotang Anda" });
+          return;
+        }
+      }
+
       if (req.userScope === "wilayah" && req.userArea) {
         if (qiudao.qiu_dao_location?.area !== req.userArea) {
           res.status(403).json({ message: "Forbidden: QiuDao dari wilayah lain" });
@@ -133,13 +162,42 @@ router.get(
   }
 );
 
+const checkFotangAccess = async (req: AuthRequest, qiudaoId?: number) => {
+  if (req.user?.role !== "Admin Vihara") return true;
+
+  const currentUser = await prisma.user.findUnique({
+    where: { user_info_id: req.user.user_info_id },
+    select: { qiudao: { select: { qiu_dao_location_id: true } } },
+  });
+
+  const allowedFotangId = currentUser?.qiudao?.qiu_dao_location_id;
+  if (!allowedFotangId) throw new Error("Admin Vihara tidak terhubung ke fotang");
+
+  if (qiudaoId) {
+    const qiudao = await prisma.qiuDao.findUnique({
+      where: { qiu_dao_id: qiudaoId },
+      select: { qiu_dao_location_id: true },
+    });
+    if (qiudao?.qiu_dao_location_id !== allowedFotangId) {
+      throw new Error("Forbidden: Hanya bisa mengelola QiuDao di fotang sendiri");
+    }
+  } else if (req.body.qiu_dao_location_id) {
+    if (parseInt(req.body.qiu_dao_location_id) !== allowedFotangId) {
+      throw new Error("Forbidden: Hanya bisa membuat di fotang sendiri");
+    }
+  }
+
+  return true;
+};
+
 // CREATE
 router.post(
   "/",
   authenticateJWT,
-  authorize({ feature: "qiudao", action: "create", scope: ["nasional", "wilayah"] }),
-  async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  authorize({ feature: "qiudao", action: "create" }),
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
+      await checkFotangAccess(req);
       const qiu_dao_location_id = parseInt(req.body.qiu_dao_location_id);
       if (req.userScope === "wilayah" && req.userArea) {
         const fotang = await prisma.fotang.findUnique({
@@ -169,10 +227,11 @@ router.post(
 router.patch(
   "/:id",
   authenticateJWT,
-  authorize({ feature: "qiudao", action: "update", scope: ["nasional", "wilayah"] }),
+  authorize({ feature: "qiudao", action: "update"}),
   async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
       const id = parseInt(req.params.id);
+      await checkFotangAccess(req, id);
       const qiudao = await getQiuDaoById(id);
       if (!qiudao) {
         res.status(404).json({ message: "QiuDao tidak ditemukan" });
@@ -196,10 +255,11 @@ router.patch(
 router.delete(
   "/:id",
   authenticateJWT,
-  authorize({ feature: "qiudao", action: "delete", scope: ["nasional", "wilayah"] }),
+  authorize({ feature: "qiudao", action: "delete"}),
   async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
       const id = parseInt(req.params.id);
+      await checkFotangAccess(req, id);
       if (isNaN(id)) {
         res.status(400).json({ message: "ID tidak valid" });
         return;

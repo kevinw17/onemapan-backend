@@ -183,6 +183,7 @@ export interface PaginatedUserOptions {
   blood_type?: string | string[];
   userArea?: Korwil;
   userId?: number;
+  fotangId?: number;
 }
 
 function buildLocationFilter(
@@ -263,6 +264,7 @@ export const getUsersPaginated = async ({
   blood_type,
   userArea,
   userId,
+  fotangId,
 }: PaginatedUserOptions): Promise<{ data: User[]; total: number }> => {
   const nestedFields: Record<string, Prisma.UserWhereInput> = {
     "domicile_location.locality": buildLocationFilter("domicile_location", "locality", search ?? ""),
@@ -365,6 +367,11 @@ export const getUsersPaginated = async ({
       qiu_dao_location: {
         area: { equals: userArea },
       },
+    };
+  }
+  if (fotangId) {
+    combinedFilter.qiudao = {
+      qiu_dao_location_id: { equals: fotangId }
     };
   }
 

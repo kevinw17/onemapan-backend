@@ -96,14 +96,29 @@ router.get(
       const genderArray = toArray(gender);
       const bloodTypeArray = toArray(blood_type);
       
-      let userArea: Korwil | undefined;
+      let userArea: Korwil | undefined = undefined;
+      let fotangId: number | undefined = undefined;
 
       if (!isNationalAccessRole(req.user?.role)) {
-        userArea = req.userArea || (req.user?.area as Korwil);
-        console.log(`Filter area aktif: ${userArea} (role: ${req.user?.role})`);
-      } else {
-        userArea = undefined;
-        console.log(`Akses NASIONAL aktif untuk role: ${req.user?.role}`);
+        // Admin Wilayah
+        if (req.user?.role === "Admin") {
+          userArea = req.userArea || (req.user?.area as Korwil);
+        }
+
+        // Admin Fotang
+        if (req.user?.role === "Admin Vihara") {
+          const currentUser = await prisma.user.findUnique({
+            where: { user_info_id: req.user.user_info_id },
+            select: { qiudao: { select: { qiu_dao_location_id: true } } }
+          });
+
+          fotangId = currentUser?.qiudao?.qiu_dao_location_id || undefined;
+
+          if (!fotangId) {
+            res.status(403).json({ message: "Admin Vihara tidak terhubung ke vihara manapun" });
+            return;
+          }
+        }
       }
 
       const fetchOptions = {
@@ -118,7 +133,8 @@ router.get(
         gender: genderArray,
         blood_type: bloodTypeArray,
         userArea,
-        userId: req.userScope === "self" && req.user.role !== "user" ? req.user.user_info_id : undefined,
+        fotangId,
+        userId: req.userScope === "self" ? req.user.user_info_id : undefined,
       };
 
       const users = await fetchAllUsers(fetchOptions);

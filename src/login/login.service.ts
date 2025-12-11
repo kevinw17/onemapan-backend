@@ -18,6 +18,7 @@ interface LoginResult {
     scope?: string;
     role?: string;
     area?: string | null;
+    fotang_id?: number | null;
   };
 }
 
@@ -60,6 +61,11 @@ export const loginUser = async ({ username, password }: LoginInput): Promise<Log
   const primaryRole = userInfo.userRoles[0]?.role.name || "User";
   let scope: string = "self";
   let area: string | null = null;
+  let fotangId: number | null = null;
+
+  if (userInfo.qiudao?.qiu_dao_location_id) {
+    fotangId = userInfo.qiudao.qiu_dao_location_id;
+  }
 
   const normalizedRole = primaryRole.toLowerCase().replace(/\s+/g, "");
 
@@ -94,6 +100,10 @@ export const loginUser = async ({ username, password }: LoginInput): Promise<Log
       scope = "self";
     }
 
+    if (normalizedRole === "adminvihara") {
+      scope = "fotang";
+    }
+
     if (normalizedRole !== "superadmin" && scope === "wilayah" && !area) {
       const error = new Error("Wilayah pengguna tidak didefinisikan");
       (error as any).statusCode = 400;
@@ -110,6 +120,7 @@ export const loginUser = async ({ username, password }: LoginInput): Promise<Log
       normalizedRole,
       scope,
       area,
+      fotang_id: fotangId
     },
     process.env.JWT_SECRET as string,
     { expiresIn: process.env.JWT_EXPIRES_IN || "1d" }
@@ -122,6 +133,6 @@ export const loginUser = async ({ username, password }: LoginInput): Promise<Log
   return {
     message: "Login berhasil",
     token,
-    user_data: { ...safeUserData, user_info_id: userInfo.user_info_id, scope, role: primaryRole, area },
+    user_data: { ...safeUserData, user_info_id: userInfo.user_info_id, scope, role: primaryRole, area, fotang_id: fotangId },
   };
 };

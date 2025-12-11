@@ -78,7 +78,8 @@ interface FetchAllQiudaoOptions {
   bao_shi_qd_name?: string[];
   bao_shi_qd_mandarin_name?: string[];
   userId?: number;
-  userArea?: Korwil; // Tambahkan userArea
+  userArea?: Korwil;
+  fotangId?: number;
 }
 
 export const fetchAllQiudao = async ({
@@ -95,25 +96,10 @@ export const fetchAllQiudao = async ({
   bao_shi_qd_name = [],
   bao_shi_qd_mandarin_name = [],
   userId,
-  userArea, // Tambahkan ke parameter
+  userArea,
+  fotangId,
 }: FetchAllQiudaoOptions) => {
   const skip = (page - 1) * limit;
-  console.log("[fetchAllQiudao] Calling:", {
-    page,
-    limit,
-    search,
-    searchField,
-    location_name,
-    location_mandarin_name,
-    dian_chuan_shi_name,
-    dian_chuan_shi_mandarin_name,
-    yin_shi_qd_name,
-    yin_shi_qd_mandarin_name,
-    bao_shi_qd_name,
-    bao_shi_qd_mandarin_name,
-    userId,
-    userArea,
-  });
 
   return await getQiudaosPaginated({
     skip,
@@ -129,7 +115,8 @@ export const fetchAllQiudao = async ({
     bao_shi_qd_name,
     bao_shi_qd_mandarin_name,
     userId,
-    userArea, // Teruskan userArea
+    userArea,
+    fotangId,
   });
 };
 

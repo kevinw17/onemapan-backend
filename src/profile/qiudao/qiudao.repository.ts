@@ -117,7 +117,8 @@ interface QiudaoPaginationOptions {
   bao_shi_qd_name?: string[];
   bao_shi_qd_mandarin_name?: string[];
   userId?: number;
-  userArea?: Korwil; // Tambahkan userArea untuk filter wilayah
+  userArea?: Korwil;
+  fotangId?: number;
 }
 
 export const getQiudaosPaginated = async ({
@@ -134,7 +135,8 @@ export const getQiudaosPaginated = async ({
   bao_shi_qd_name = [],
   bao_shi_qd_mandarin_name = [],
   userId,
-  userArea, // Tambahkan ke parameter
+  userArea,
+  fotangId,
 }: QiudaoPaginationOptions): Promise<{
   data: QiuDaoWithRelations[];
   total: number;
@@ -225,6 +227,12 @@ export const getQiudaosPaginated = async ({
   // === 4. FILTER BY AREA (Admin wilayah) ===
   if (userArea) {
     filters.push({ qiu_dao_location: { area: userArea } });
+  }
+
+  if (fotangId) {
+    filters.push({
+      qiu_dao_location_id: { equals: fotangId }
+    });
   }
 
   const where = filters.length > 0 ? { AND: filters } : {};

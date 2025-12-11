@@ -51,7 +51,8 @@ export const authorize = (required: PermissionCheck) => {
       if (
         normalizedRole === "superadmin" ||
         normalizedRole === "ketualembaga" ||
-        normalizedRole === "sekjenlembaga"
+        normalizedRole === "sekjenlembaga" ||
+        normalizedRole === "adminvihara"
       ) {
         const user = await prisma.user.findUnique({
           where: { user_info_id: userId },
@@ -66,17 +67,26 @@ export const authorize = (required: PermissionCheck) => {
           return;
         }
 
-        userArea = req.user.area ? (req.user.area as Korwil) : undefined;
+        userArea = user.qiudao?.qiu_dao_location?.area || req.user.area as Korwil | undefined;
+
+        // PERBAIKAN UTAMA: JANGAN TIMPA userScope!
+        if (normalizedRole === "adminvihara") {
+          req.userScope = "fotang";
+        } else {
+          req.userScope = "nasional";
+        }
 
         req.userRole = req.user.role;
-        req.userScope = "nasional";
         req.userLocationId = user.domicile_location_id;
         req.userArea = userArea;
+
+        // INI YANG PALING PENTING: kasih tahu frontend bahwa ini admin!
+        (req.user as any).isNotUserRole = true;
 
         next();
         return;
       }
-
+      
       if (
         normalizedRole === "user" &&
         (required.feature === "qiudao" || required.feature === "umat") &&

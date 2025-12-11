@@ -153,6 +153,7 @@ interface FetchAllUsersOptions {
   blood_type?: string | string[];
   userArea?: Korwil;
   userId?: number;
+  fotangId?: number;
 }
 
 export const fetchAllUsers = async ({
@@ -168,8 +169,10 @@ export const fetchAllUsers = async ({
   blood_type,
   userArea,
   userId,
+  fotangId,
 }: FetchAllUsersOptions) => {
   const skip = (page - 1) * limit;
+
   const result = await getUsersPaginated({
     skip,
     limit,
@@ -183,7 +186,9 @@ export const fetchAllUsers = async ({
     blood_type,
     userArea,
     userId,
+    fotangId,
   });
+
   return result;
 };
 
