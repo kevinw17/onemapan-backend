@@ -60,7 +60,7 @@ router.get(
 
       let fotangId: number | undefined = undefined;
 
-      if (req.user.role === "Admin Vihara") {
+      if (req.userScope === "fotang") {
         const currentUser = await prisma.user.findUnique({
           where: { user_info_id: req.user.user_info_id },
           select: { qiudao: { select: { qiu_dao_location_id: true } } },
@@ -136,14 +136,18 @@ router.get(
         }
       }
 
-      if (req.user.role === "Admin Vihara") {
+      let fotangId: number | undefined = undefined;
+
+      if (req.userScope === "fotang") {
         const currentUser = await prisma.user.findUnique({
           where: { user_info_id: req.user.user_info_id },
           select: { qiudao: { select: { qiu_dao_location_id: true } } },
         });
 
-        if (qiudao.qiu_dao_location_id !== currentUser?.qiudao?.qiu_dao_location_id) {
-          res.status(403).json({ message: "Forbidden: Bukan fotang Anda" });
+        fotangId = currentUser?.qiudao?.qiu_dao_location_id;
+
+        if (!fotangId) {
+          res.status(403).json({ message: "User tidak terhubung ke vihara/fotang manapun" });
           return;
         }
       }

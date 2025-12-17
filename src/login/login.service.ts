@@ -69,48 +69,70 @@ export const loginUser = async ({ username, password }: LoginInput): Promise<Log
 
   const normalizedRole = primaryRole.toLowerCase().replace(/\s+/g, "");
 
+  // Di dalam loginUser, setelah tentukan primaryRole, scope, area, dll
+
+  // Ambil permissions dari role user (asumsi user punya 1 role utama)
+  let permissions: any = {};
+
+  if (userInfo.userRoles && userInfo.userRoles.length > 0) {
+    // Ambil dari role pertama (atau bisa combine semua kalau multiple role)
+    permissions = userInfo.userRoles[0].role.permissions || {};
+
+    // KALAU MAU COMBINE SEMUA ROLE (RECOMMENDED KALAU USER BISA PUNYA >1 ROLE)
+    userInfo.userRoles.forEach((userRole) => {
+      if (userRole.role.permissions) {
+        Object.assign(permissions, userRole.role.permissions);
+      }
+    });
+  }
+
+  // Override untuk role nasional (Super Admin, Ketua, Sekjen) — pastikan full access
   if (
     normalizedRole === "superadmin" ||
     normalizedRole === "ketualembaga" ||
     normalizedRole === "sekjenlembaga"
   ) {
-    scope = "nasional";
-    area = null;
-  } else {
-    if (userInfo.qiudao?.qiu_dao_location) {
-      area = userInfo.qiudao.qiu_dao_location.area;
-      if (!Object.values(Korwil).includes(area as Korwil)) {
-        area = null;
-      }
-    }
-
-    scope = userInfo.userRoles.some((ur) => {
-      const permissions = ur.role.permissions as Permissions | null;
-      return permissions?.qiudao?.scope === "nasional";
-    })
-      ? "nasional"
-      : userInfo.userRoles.some((ur) => {
-          const permissions = ur.role.permissions as Permissions | null;
-          return permissions?.qiudao?.scope === "wilayah";
-        })
-      ? "wilayah"
-      : "self";
-
-    if (primaryRole === "User") {
-      scope = "self";
-    }
-
-    if (normalizedRole === "adminvihara") {
-      scope = "fotang";
-    }
-
-    if (normalizedRole !== "superadmin" && scope === "wilayah" && !area) {
-      const error = new Error("Wilayah pengguna tidak didefinisikan");
-      (error as any).statusCode = 400;
-      throw error;
-    }
+    permissions = {
+      ...permissions,
+      umat: { create: true, read: true, update: true, delete: true, scope: "nasional" },
+      qiudao: { create: true, read: true, update: true, delete: true, scope: "nasional" },
+      // tambah module lain kalau perlu
+    };
   }
 
+  // Admin Vihara
+  if (normalizedRole === "adminvihara") {
+    permissions = {
+      ...permissions,
+      umat: { create: true, read: true, update: true, delete: true, scope: "fotang" },
+    };
+  }
+
+  // Admin Wilayah biasa
+  if (normalizedRole === "admin") {
+    permissions = {
+      ...permissions,
+      umat: { create: true, read: true, update: true, delete: true, scope: "wilayah" },
+    };
+  }
+
+  let tokenScope = "self";
+
+  if (permissions.umat?.scope) {
+    tokenScope = permissions.umat.scope;
+  } else if (
+    normalizedRole === "superadmin" ||
+    normalizedRole === "ketualembaga" ||
+    normalizedRole === "sekjenlembaga"
+  ) {
+    tokenScope = "nasional";
+  } else if (normalizedRole === "adminvihara") {
+    tokenScope = "fotang";
+  } else if (normalizedRole === "admin") {
+    tokenScope = "wilayah";
+  }
+
+  // GENERATE TOKEN DENGAN scope YANG BENAR
   const token = jwt.sign(
     {
       credential_id: user.user_credential,
@@ -118,14 +140,15 @@ export const loginUser = async ({ username, password }: LoginInput): Promise<Log
       user_info_id: userInfo.user_info_id,
       role: primaryRole,
       normalizedRole,
-      scope,
+      scope: tokenScope,  // ← INI YANG DIPAKAI BACKEND UNTUK FILTER DATA
       area,
-      fotang_id: fotangId
+      fotang_id: fotangId,
+      permissions  // ← INI DIPAKAI FRONTEND UNTUK TAMPILKAN UI ADMIN
     },
     process.env.JWT_SECRET as string,
     { expiresIn: process.env.JWT_EXPIRES_IN || "1d" }
   );
-
+  
   const { hashed_password, ...safeUserData } = user;
 
   await updateLastLoggedIn(user.user_credential);
@@ -133,6 +156,13 @@ export const loginUser = async ({ username, password }: LoginInput): Promise<Log
   return {
     message: "Login berhasil",
     token,
-    user_data: { ...safeUserData, user_info_id: userInfo.user_info_id, scope, role: primaryRole, area, fotang_id: fotangId },
+    user_data: { 
+      ...safeUserData, 
+      user_info_id: userInfo.user_info_id, 
+      scope: tokenScope,
+      role: primaryRole, 
+      area, 
+      fotang_id: fotangId 
+    },
   };
 };

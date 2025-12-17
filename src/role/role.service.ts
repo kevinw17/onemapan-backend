@@ -43,11 +43,7 @@ interface UpdateRoleInput {
 }
 
 const validModules = ["umat", "qiudao", "dashboard", "kegiatan", "account"];
-const validScopes = [
-    "nasional",
-    "Korwil_1", "Korwil_2", "Korwil_3", "Korwil_4", "Korwil_5", "Korwil_6",
-    "fotang"
-];
+const validScopes = ["nasional", "wilayah", "fotang", "self"];
 const validActions: { [key: string]: string[] } = {
     umat: ["create", "read", "update", "delete", "import"],
     qiudao: ["create", "read", "update", "delete", "import"],

@@ -100,12 +100,10 @@ router.get(
       let fotangId: number | undefined = undefined;
 
       if (!isNationalAccessRole(req.user?.role)) {
-        // Admin Wilayah
         if (req.user?.role === "Admin") {
           userArea = req.userArea || (req.user?.area as Korwil);
         }
 
-        // Admin Fotang
         if (req.user?.role === "Admin Vihara") {
           const currentUser = await prisma.user.findUnique({
             where: { user_info_id: req.user.user_info_id },
@@ -121,6 +119,30 @@ router.get(
         }
       }
 
+      if (req.userScope === "nasional") {
+        userArea = undefined;
+        fotangId = undefined;
+      } else if (req.userScope === "wilayah") {
+        userArea = req.userArea;
+        if (!userArea) {
+          res.status(400).json({ message: "Wilayah pengguna tidak didefinisikan" });
+          return;
+        }
+      } else if (req.userScope === "fotang") {
+        const currentUser = await prisma.user.findUnique({
+          where: { user_info_id: req.user.user_info_id },
+          select: { qiudao: { select: { qiu_dao_location_id: true } } }
+        });
+
+        fotangId = currentUser?.qiudao?.qiu_dao_location_id;
+
+        if (!fotangId) {
+          res.status(403).json({ message: "Admin Vihara tidak terhubung ke vihara manapun" });
+          return;
+        }
+      }
+
+      // 3. Tetap pakai userId hanya kalau scope "self"
       const fetchOptions = {
         page,
         limit,
@@ -134,8 +156,16 @@ router.get(
         blood_type: bloodTypeArray,
         userArea,
         fotangId,
-        userId: req.userScope === "self" ? req.user.user_info_id : undefined,
+        userId: req.user?.scope === "self" ? req.user.user_info_id : undefined,
       };
+
+      console.log("BACKEND FETCH OPTIONS:", {
+        userArea,
+        fotangId,
+        userId: fetchOptions.userId,
+        scope: req.user?.scope,
+        role: req.user?.role,
+      });
 
       const users = await fetchAllUsers(fetchOptions);
 
