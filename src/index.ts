@@ -16,6 +16,7 @@ import eventController from "./event/event.controller";
 import roleController from "./role/role.controller";
 import institutionRouter from "./institution/institution.controller";
 import changePasswordController from "./auth/change-password.controller";
+import dashboardController from "./dashboard/dashboard.controller";
 
 dotenv.config();
 const app = express();
@@ -75,6 +76,7 @@ app.use("/event", eventController);
 app.use("/role", roleController);
 app.use("/institution", institutionRouter);
 app.use("/change-password", changePasswordController);
+app.use("/dashboard", dashboardController);
 
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   res.status(err.statusCode || 500).json({ message: err.message || "Internal server error" });
