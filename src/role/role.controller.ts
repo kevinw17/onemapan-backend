@@ -103,7 +103,7 @@ router.get("/users", (req: AuthRequest, res: Response) => {
 router.get("/user/:user_id", (req: AuthRequest, res: Response) => {
     void (async () => {
         try {
-            const userId = parseInt(req.params.user_id);
+            const userId = req.params.user_id;
             const userRoles = await getRolesByUserId(userId);
             res.status(200).json(userRoles);
         } catch (error: any) {
@@ -273,7 +273,7 @@ router.post("/assign", (req: AuthRequest, res: Response) => {
                 return;
             }
 
-            const userId = parseInt(String(user_id));
+            const userId = user_id;
             const roleId = parseInt(String(role_id));
 
             if (isNaN(userId) || isNaN(roleId)) {
@@ -341,7 +341,7 @@ router.delete("/remove", (req: AuthRequest, res: Response) => {
                 return;
             }
 
-            const parsedUserId = parseInt(String(user_id));
+            const parsedUserId = user_id;
             const parsedRoleId = parseInt(String(role_id));
 
             if (isNaN(parsedUserId) || isNaN(parsedRoleId)) {

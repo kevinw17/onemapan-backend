@@ -4,7 +4,7 @@ import bcrypt from "bcrypt";
 import prisma from "../db";
 
 export const changeUserPassword = async (
-    userId: number,
+    userId: string,
     oldPassword: string,
     newPassword: string
 ): Promise<void> => {

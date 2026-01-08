@@ -59,7 +59,7 @@ export const createUserRole = async (
 };
 
 export const deleteUserRole = async (
-    user_id: number,
+    user_id: string,
     role_id: number
 ): Promise<UserRole> => {
     return await prisma.userRole.delete({
@@ -69,7 +69,7 @@ export const deleteUserRole = async (
     });
 };
 
-export const getUserRolesByUserId = async (user_id: number): Promise<(UserRole & { role: Role })[]> => {
+export const getUserRolesByUserId = async (user_id: string): Promise<(UserRole & { role: Role })[]> => {
     return await prisma.userRole.findMany({
         where: { user_id },
         include: {

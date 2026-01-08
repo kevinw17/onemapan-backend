@@ -2,7 +2,7 @@ import prisma from "../../db";
 import { BloodType, Gender, Prisma, SpiritualStatus, User, UserCredential, Korwil, Role, UserRole } from "@prisma/client";
 
 type QiuDaoWithIncludes = {
-  qiu_dao_id: number;
+  qiu_dao_id: string;
   qiu_dao_location_id?: number | null;
   qiu_dao_location?: { area: Korwil } | null;
 };
@@ -72,7 +72,7 @@ export type UserWithIncludes = User & {
   userRoles?: (UserRole & { role: Role })[];
 };
 
-export const findUserById = async (id: number): Promise<UserWithIncludes | null> => {
+export const findUserById = async (id: string): Promise<UserWithIncludes | null> => {
   return await prisma.user.findUnique({
     where: { user_info_id: id },
     include: {
@@ -87,7 +87,7 @@ export const findUserById = async (id: number): Promise<UserWithIncludes | null>
 };
 
 export const updateUser = async (
-  id: number,
+  id: string,
   updateData: Prisma.UserUpdateInput
 ): Promise<User> => {
   const {
@@ -133,7 +133,7 @@ export const updateUser = async (
 };
 
 export const updateUserWithSpiritualStatus = async (
-  id: number,
+  id: string,
   updateData: Prisma.UserUpdateInput,
   newSpiritualStatus: SpiritualStatus
 ): Promise<User> => {
@@ -158,7 +158,7 @@ export const updateUserWithSpiritualStatus = async (
   });
 };
 
-export const deleteUser = async (id: number): Promise<User> => {
+export const deleteUser = async (id: string): Promise<User> => {
   return await prisma.$transaction(async (tx) => {
     await tx.spiritualUser.deleteMany({
       where: { userId: id },
@@ -182,7 +182,7 @@ export interface PaginatedUserOptions {
   gender?: string | string[];
   blood_type?: string | string[];
   userArea?: Korwil;
-  userId?: number;
+  userId?: string;
   fotangId?: number;
 }
 

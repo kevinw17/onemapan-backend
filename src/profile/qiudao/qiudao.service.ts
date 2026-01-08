@@ -1,3 +1,5 @@
+import prisma from "../../db";
+import { findFotangById } from "../../fotang/fotang.repository";
 import {
   createQiuDao,
   findQiuDaoById,
@@ -47,7 +49,28 @@ export const registerQiuDao = async (data: QiudaoInput): Promise<QiuDao> => {
   validateName(yin_shi_qd_name, yin_shi_qd_mandarin_name, "Nama Guru Pengajak");
   validateName(bao_shi_qd_name, bao_shi_qd_mandarin_name, "Nama Guru Penanggung");
 
+  const fotang = await findFotangById(qiu_dao_location_id);
+  if (!fotang) throw new Error("Vihara tidak ditemukan");
+
+  if (!fotang) throw new Error("Vihara tidak ditemukan");
+
+  const korwilDigit = fotang.area.replace("Korwil_", ""); // "Korwil_2" → "2"
+  const viharaIdPadded = qiu_dao_location_id.toString().padStart(4, "0");
+
+  // Hitung total QiuDao di vihara ini (untuk urutan)
+  const totalInVihara = await prisma.qiuDao.count({
+    where: { qiu_dao_location_id }
+  });
+
+  const seriIndex = Math.floor(totalInVihara / 999999);
+  const seriAlpha = String.fromCharCode(65 + seriIndex);
+  const urutanDalamSeri = (totalInVihara % 999999) + 1;
+  const nomorUrut = urutanDalamSeri.toString().padStart(6, "0");
+
+  const generatedId = `${korwilDigit}${viharaIdPadded}-${seriAlpha}${nomorUrut}`;
+
   return await createQiuDao({
+    qiu_dao_id: generatedId,
     qiu_dao_name,
     qiu_dao_mandarin_name,
     qiu_dao_location: { connect: { fotang_id: qiu_dao_location_id } },
@@ -77,7 +100,7 @@ interface FetchAllQiudaoOptions {
   yin_shi_qd_mandarin_name?: string[];
   bao_shi_qd_name?: string[];
   bao_shi_qd_mandarin_name?: string[];
-  userId?: number;
+  userId?: string;
   userArea?: Korwil;
   fotangId?: number;
 }
@@ -120,22 +143,22 @@ export const fetchAllQiudao = async ({
   });
 };
 
-export const getQiuDaoById = async (id: number): Promise<QiuDaoWithRelations | null> => {
+export const getQiuDaoById = async (id: string): Promise<QiuDaoWithRelations | null> => {
   return await findQiuDaoById(id);
 };
 
 export const updateQiuDaoById = async (
-  id: number,
+  id: string,
   updatedData: Prisma.QiuDaoUpdateInput
 ): Promise<QiuDao> => {
-  if (!id || typeof id !== "number") {
+  if (!id || typeof id !== "string") {
     throw new Error("ID QiuDao tidak valid");
   }
   return await updateQiuDao(id, updatedData);
 };
 
-export const deleteQiuDaoById = async (id: number): Promise<QiuDao> => {
-  if (!id || typeof id !== "number") {
+export const deleteQiuDaoById = async (id: string): Promise<QiuDao> => {
+  if (!id || typeof id !== "string") {
     throw new Error("ID tidak valid");
   }
   return await removeQiuDao(id);

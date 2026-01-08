@@ -32,7 +32,7 @@ router.post(
   authorize({ feature: "umat", action: "create", scope: "wilayah" }),
   async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const qiu_dao_id = parseInt(req.body.qiu_dao_id);
+      const qiu_dao_id = req.body.qiu_dao_id;
       if (req.userScope === "wilayah" && req.userArea) {
         if (!qiu_dao_id) {
           res.status(400).json({ message: "QiuDao ID wajib dipilih" });
@@ -54,7 +54,7 @@ router.post(
 
       const data = {
         ...req.body,
-        qiu_dao_id,
+        qiu_dao_id: qiu_dao_id,
         domicile_location_id: parseInt(req.body.domicile_location_id),
         id_card_location_id: parseInt(req.body.id_card_location_id),
       };
@@ -106,11 +106,11 @@ router.get(
 
         if (req.user?.role === "Admin Vihara") {
           const currentUser = await prisma.user.findUnique({
-            where: { user_info_id: req.user.user_info_id },
-            select: { qiudao: { select: { qiu_dao_location_id: true } } }
+            where: { user_info_id: String(req.user.user_info_id) },
+            include: { qiudao: true },
           });
 
-          fotangId = currentUser?.qiudao?.qiu_dao_location_id || undefined;
+          fotangId = currentUser?.qiudao?.qiu_dao_location_id;
 
           if (!fotangId) {
             res.status(403).json({ message: "Admin Vihara tidak terhubung ke vihara manapun" });
@@ -130,8 +130,8 @@ router.get(
         }
       } else if (req.userScope === "fotang") {
         const currentUser = await prisma.user.findUnique({
-          where: { user_info_id: req.user.user_info_id },
-          select: { qiudao: { select: { qiu_dao_location_id: true } } }
+          where: { user_info_id: String(req.user.user_info_id) },
+          include: { qiudao: true },
         });
 
         fotangId = currentUser?.qiudao?.qiu_dao_location_id;
@@ -142,7 +142,6 @@ router.get(
         }
       }
 
-      // 3. Tetap pakai userId hanya kalau scope "self"
       const fetchOptions = {
         page,
         limit,
@@ -156,19 +155,10 @@ router.get(
         blood_type: bloodTypeArray,
         userArea,
         fotangId,
-        userId: req.user?.scope === "self" ? req.user.user_info_id : undefined,
+        userId: req.userScope === "self" ? (String(req.user.user_info_id)) : undefined,
       };
 
-      console.log("BACKEND FETCH OPTIONS:", {
-        userArea,
-        fotangId,
-        userId: fetchOptions.userId,
-        scope: req.user?.scope,
-        role: req.user?.role,
-      });
-
       const users = await fetchAllUsers(fetchOptions);
-
       res.status(200).json(users);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -182,17 +172,17 @@ router.get(
   authorize({ feature: "umat", action: "read" }),
   async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const userId = parseInt(req.params.id);
-      const currentUserId = req.user!.user_info_id;
+      const id = req.params.id;
+      const currentUserId = String(req.user!.user_info_id);;
 
       if (req.userScope === "self" && req.user!.role !== "user") {
-        if (userId !== currentUserId) {
+        if (id !== currentUserId) {
           res.status(403).json({ message: "Forbidden: Can only view own data" });
           return;
         }
       }
 
-      const user = await getUserById(userId) as UserWithRelations | null;
+      const user = await getUserById(id) as UserWithRelations | null;
 
       if (!user) {
         res.status(404).json({ message: "User tidak ditemukan" });
@@ -200,7 +190,7 @@ router.get(
       }
 
       if (req.userScope === "wilayah" && req.userArea) {
-        const userArea = user.area || user.qiudao?.qiu_dao_location?.area;
+        const userArea = user.qiudao?.qiu_dao_location?.area;
         if (userArea && userArea !== req.userArea) {
           res.status(403).json({ message: "Forbidden: User dari wilayah lain" });
           return;
@@ -220,8 +210,8 @@ router.patch(
   authorize({ feature: "umat", action: "update" }),
   async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const userId = parseInt(req.params.id);
-      const currentUserId = req.user!.user_info_id;
+      const userId = req.params.id;
+      const currentUserId = String(req.user!.user_info_id);;
 
       if (userId === currentUserId) {
         const updatedUser = await updateUserById(userId, req.body);
@@ -264,7 +254,7 @@ router.delete(
   authorize({ feature: "umat", action: "delete", scope: ["nasional", "wilayah"] }),
   async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const userId = parseInt(req.params.id);
+      const userId = req.params.id;
       const user = await getUserById(userId) as UserWithRelations | null;
 
       if (!user) {

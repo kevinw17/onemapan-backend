@@ -14,8 +14,8 @@ datasource db {
 }
 
 model User {
-  user_info_id         Int             @id @default(autoincrement())
-  qiu_dao_id           Int             @unique
+  user_info_id         String          @id @db.VarChar(16)
+  qiu_dao_id           String          @unique @db.VarChar(16)
   qiudao               QiuDao          @relation(fields: [qiu_dao_id], references: [qiu_dao_id])
   full_name            String          @db.VarChar(250)
   mandarin_name        String?         @db.VarChar(4)
@@ -26,7 +26,7 @@ model User {
   date_of_birth        DateTime        @db.Date
   date_of_death        DateTime?       @db.Date
   id_card_number       String?         @db.VarChar(20)
-  phone_number         String          @db.Char(30)
+  phone_number         String?         @db.Char(30)
   email                String?
   marital_status       MaritalStatus?
   last_education_level String?         @db.VarChar(100)
@@ -55,7 +55,7 @@ model Role {
 }
 
 model UserRole {
-  user_id    Int
+  user_id    String
   role_id    Int
   user       User      @relation(fields: [user_id], references: [user_info_id])
   role       Role      @relation(fields: [role_id], references: [role_id])
@@ -65,7 +65,7 @@ model UserRole {
 }
 
 model QiuDao {
-  qiu_dao_id               Int           @id @default(autoincrement())
+  qiu_dao_id               String        @id @db.VarChar(16)
   User                     User?
   qiu_dao_name             String?       @db.VarChar(250)
   qiu_dao_mandarin_name    String?       @db.VarChar(250)
@@ -73,12 +73,12 @@ model QiuDao {
   qiu_dao_location         Fotang        @relation(fields: [qiu_dao_location_id], references: [fotang_id])
   dian_chuan_shi_id        Int?
   dian_chuan_shi           DianChuanShi? @relation("DianChuanShiRelation", fields: [dian_chuan_shi_id], references: [id])
-  yin_shi_qd_id            Int?
+  yin_shi_qd_id            String?
   yin_shi_qd_name          String?       @db.VarChar(250)
   yin_shi_qd_mandarin_name String?       @db.VarChar(4)
   yin_shi_reference        QiuDao?       @relation("YinShiReference", fields: [yin_shi_qd_id], references: [qiu_dao_id])
   yin_shi_dependents       QiuDao[]      @relation("YinShiReference")
-  bao_shi_qd_id            Int?
+  bao_shi_qd_id            String?
   bao_shi_qd_name          String?       @db.VarChar(250)
   bao_shi_qd_mandarin_name String?       @db.VarChar(4)
   bao_shi_reference        QiuDao?       @relation("BaoShiReference", fields: [bao_shi_qd_id], references: [qiu_dao_id])
@@ -94,7 +94,7 @@ model QiuDao {
 
 model Location {
   location_id            Int       @id @default(autoincrement())
-  location_name          String    @db.VarChar(250)
+  location_name          String?   @db.VarChar(250)
   location_mandarin_name String?   @db.VarChar(20)
   latitude               Int?
   longitude              Int?
@@ -111,7 +111,7 @@ model Location {
 
 model UserCredential {
   user_credential Int       @id @default(autoincrement())
-  user_id         Int?      @unique
+  user_id         String?   @unique
   user            User?     @relation(fields: [user_id], references: [user_info_id])
   username        String    @unique @db.VarChar(500)
   hashed_password String?   @db.VarChar(500)
@@ -159,7 +159,7 @@ model DianChuanShi {
 model SpiritualUser {
   id               Int             @id @default(autoincrement())
   user             User            @relation(fields: [userId], references: [user_info_id])
-  userId           Int             @unique
+  userId           String          @unique
   spiritual_status SpiritualStatus
   role_start       DateTime?
   role_end         DateTime?

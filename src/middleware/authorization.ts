@@ -3,6 +3,7 @@ import { getRolesByUserId } from "../role/role.service";
 import prisma from "../db";
 import { Korwil } from "@prisma/client";
 import { JwtPayload } from "./authentication";
+import { findUserById } from "../profile/user/user.repository";
 
 interface PermissionCheck {
   feature: string;
@@ -35,7 +36,7 @@ export const authorize = (required: PermissionCheck) => {
         return;
       }
 
-      const userId = req.user.user_info_id;
+      const userId = String(req.user.user_info_id);
       if (!userId) {
         res.status(401).json({ message: "Unauthorized: User ID not found in token" });
         return;
@@ -54,13 +55,7 @@ export const authorize = (required: PermissionCheck) => {
         normalizedRole === "sekjenlembaga" ||
         normalizedRole === "adminvihara"
       ) {
-        const user = await prisma.user.findUnique({
-          where: { user_info_id: userId },
-          include: {
-            qiudao: { include: { qiu_dao_location: true } },
-            domicile_location: true,
-          },
-        });
+        const user = await findUserById(userId);
 
         if (!user) {
           res.status(404).json({ message: "User not found" });

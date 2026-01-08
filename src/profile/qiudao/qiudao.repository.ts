@@ -52,7 +52,7 @@ export const getAllQiuDao = async (): Promise<QiuDaoWithRelations[]> => {
 };
 
 export const findQiuDaoById = async (
-  id: number
+  id: string
 ): Promise<QiuDaoWithRelations | null> => {
   return await prisma.qiuDao.findUnique({
     where: { qiu_dao_id: id },
@@ -78,7 +78,7 @@ export const findQiuDaoById = async (
 };
 
 export const updateQiuDao = async (
-  id: number,
+  id: string,
   data: Prisma.QiuDaoUpdateInput
 ): Promise<QiuDao> => {
   return await prisma.qiuDao.update({
@@ -88,7 +88,7 @@ export const updateQiuDao = async (
 };
 
 export const removeQiuDao = async (
-  id: number
+  id: string
 ): Promise<QiuDao> => {
   const userCount = await prisma.user.count({
     where: { qiu_dao_id: id },
@@ -116,7 +116,7 @@ interface QiudaoPaginationOptions {
   yin_shi_qd_mandarin_name?: string[];
   bao_shi_qd_name?: string[];
   bao_shi_qd_mandarin_name?: string[];
-  userId?: number;
+  userId?: string;
   userArea?: Korwil;
   fotangId?: number;
 }
@@ -216,11 +216,11 @@ export const getQiudaosPaginated = async ({
   if (userId) {
     const ids = await prisma.user
       .findMany({ where: { user_info_id: userId }, select: { qiu_dao_id: true } })
-      .then(users => users.map(u => u.qiu_dao_id).filter((id): id is number => id !== null));
+      .then(users => users.map(u => u.qiu_dao_id).filter((id): id is string => id !== null)); // ← ubah ke string
     if (ids.length > 0) {
       filters.push({ qiu_dao_id: { in: ids } });
     } else {
-      filters.push({ qiu_dao_id: { equals: -1 } });
+      filters.push({ qiu_dao_id: { equals: "" } }); // tidak akan match apa-apa
     }
   }
 

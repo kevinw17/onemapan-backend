@@ -36,7 +36,6 @@ router.get(
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 10;
 
-      // 1. Basic search: HANYA 1 nilai
       const rawSearch = req.query.search;
       const rawSearchField = req.query.searchField;
 
@@ -48,21 +47,25 @@ router.get(
         ? (rawSearchField[0] as string) || "qiu_dao_mandarin_name"
         : (rawSearchField as string) || "qiu_dao_mandarin_name";
 
-      // 2. Multiple filters: pakai []
-      const location_name = req.query["location_name[]"];
-      const location_mandarin_name = req.query["location_mandarin_name[]"];
-      const dian_chuan_shi_name = req.query["dian_chuan_shi_name[]"];
-      const dian_chuan_shi_mandarin_name = req.query["dian_chuan_shi_mandarin_name[]"];
-      const yin_shi_qd_name = req.query["yin_shi_qd_name[]"];
-      const yin_shi_qd_mandarin_name = req.query["yin_shi_qd_mandarin_name[]"];
-      const bao_shi_qd_name = req.query["bao_shi_qd_name[]"];
-      const bao_shi_qd_mandarin_name = req.query["bao_shi_qd_mandarin_name[]"];
+      const toArray = (param: any): string[] => {
+        if (!param) return [];
+        return Array.isArray(param) ? param.map(String) : [String(param)];
+      };
+
+      const location_name = toArray(req.query["location_name[]"]);
+      const location_mandarin_name = toArray(req.query["location_mandarin_name[]"]);
+      const dian_chuan_shi_name = toArray(req.query["dian_chuan_shi_name[]"]);
+      const dian_chuan_shi_mandarin_name = toArray(req.query["dian_chuan_shi_mandarin_name[]"]);
+      const yin_shi_qd_name = toArray(req.query["yin_shi_qd_name[]"]);
+      const yin_shi_qd_mandarin_name = toArray(req.query["yin_shi_qd_mandarin_name[]"]);
+      const bao_shi_qd_name = toArray(req.query["bao_shi_qd_name[]"]);
+      const bao_shi_qd_mandarin_name = toArray(req.query["bao_shi_qd_mandarin_name[]"]);
 
       let fotangId: number | undefined = undefined;
 
       if (req.userScope === "fotang") {
         const currentUser = await prisma.user.findUnique({
-          where: { user_info_id: req.user.user_info_id },
+          where: { user_info_id: String(req.user.user_info_id) },
           select: { qiudao: { select: { qiu_dao_location_id: true } } },
         });
 
@@ -74,25 +77,20 @@ router.get(
         }
       }
 
-      const toArray = (param: any): string[] => {
-        if (!param) return [];
-        return Array.isArray(param) ? param.map(String) : [String(param)];
-      };
-
       const fetchOptions = {
         page,
         limit,
         search,
         searchField,
-        location_name: toArray(location_name),
-        location_mandarin_name: toArray(location_mandarin_name),
-        dian_chuan_shi_name: toArray(dian_chuan_shi_name),
-        dian_chuan_shi_mandarin_name: toArray(dian_chuan_shi_mandarin_name),
-        yin_shi_qd_name: toArray(yin_shi_qd_name),
-        yin_shi_qd_mandarin_name: toArray(yin_shi_qd_mandarin_name),
-        bao_shi_qd_name: toArray(bao_shi_qd_name),
-        bao_shi_qd_mandarin_name: toArray(bao_shi_qd_mandarin_name),
-        userId: req.userScope === "self" ? req.user.user_info_id : undefined,
+        location_name,
+        location_mandarin_name,
+        dian_chuan_shi_name,
+        dian_chuan_shi_mandarin_name,
+        yin_shi_qd_name,
+        yin_shi_qd_mandarin_name,
+        bao_shi_qd_name,
+        bao_shi_qd_mandarin_name,
+        userId: req.userScope === "self" ? (String(req.user.user_info_id)) : undefined,
         userArea: req.userScope === "wilayah" ? req.userArea : undefined,
         fotangId,
       };
@@ -118,16 +116,18 @@ router.get(
         return;
       }
 
-      const id = parseInt(req.params.id);
+      const id = req.params.id; // ← langsung string, tidak parseInt!
       const qiudao = await getQiuDaoById(id);
+
       if (!qiudao) {
         res.status(404).json({ message: "Data QiuDao tidak ditemukan" });
         return;
       }
 
+      // Scope: self
       if (req.userScope === "self" && req.userRole !== "user") {
         const user = await prisma.user.findUnique({
-          where: { user_info_id: req.user.user_info_id },
+          where: { user_info_id: String(req.user.user_info_id) },
           select: { qiu_dao_id: true },
         });
         if (id !== user?.qiu_dao_id) {
@@ -136,12 +136,12 @@ router.get(
         }
       }
 
+      // Scope: fotang
       let fotangId: number | undefined = undefined;
-
       if (req.userScope === "fotang") {
         const currentUser = await prisma.user.findUnique({
-          where: { user_info_id: req.user.user_info_id },
-          select: { qiudao: { select: { qiu_dao_location_id: true } } },
+          where: { user_info_id: String(req.user.user_info_id) },
+          include: { qiudao: { select: { qiu_dao_location_id: true } } },
         });
 
         fotangId = currentUser?.qiudao?.qiu_dao_location_id;
@@ -152,6 +152,7 @@ router.get(
         }
       }
 
+      // Scope: wilayah
       if (req.userScope === "wilayah" && req.userArea) {
         if (qiudao.qiu_dao_location?.area !== req.userArea) {
           res.status(403).json({ message: "Forbidden: QiuDao dari wilayah lain" });
@@ -166,12 +167,12 @@ router.get(
   }
 );
 
-const checkFotangAccess = async (req: AuthRequest, qiudaoId?: number) => {
+const checkFotangAccess = async (req: AuthRequest, qiudaoId?: string) => {
   if (req.user?.role !== "Admin Vihara") return true;
 
   const currentUser = await prisma.user.findUnique({
-    where: { user_info_id: req.user.user_info_id },
-    select: { qiudao: { select: { qiu_dao_location_id: true } } },
+    where: { user_info_id: String(req.user.user_info_id) },
+    include: { qiudao: { select: { qiu_dao_location_id: true } } },
   });
 
   const allowedFotangId = currentUser?.qiudao?.qiu_dao_location_id;
@@ -179,7 +180,7 @@ const checkFotangAccess = async (req: AuthRequest, qiudaoId?: number) => {
 
   if (qiudaoId) {
     const qiudao = await prisma.qiuDao.findUnique({
-      where: { qiu_dao_id: qiudaoId },
+      where: { qiu_dao_id: qiudaoId }, // ← string
       select: { qiu_dao_location_id: true },
     });
     if (qiudao?.qiu_dao_location_id !== allowedFotangId) {
@@ -231,11 +232,12 @@ router.post(
 router.patch(
   "/:id",
   authenticateJWT,
-  authorize({ feature: "qiudao", action: "update"}),
+  authorize({ feature: "qiudao", action: "update" }),
   async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const id = parseInt(req.params.id);
+      const id = req.params.id; // ← string langsung
       await checkFotangAccess(req, id);
+
       const qiudao = await getQiuDaoById(id);
       if (!qiudao) {
         res.status(404).json({ message: "QiuDao tidak ditemukan" });
@@ -255,19 +257,15 @@ router.patch(
   }
 );
 
-// DELETE
+// DELETE — ID
 router.delete(
   "/:id",
   authenticateJWT,
-  authorize({ feature: "qiudao", action: "delete"}),
+  authorize({ feature: "qiudao", action: "delete" }),
   async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const id = parseInt(req.params.id);
+      const id = req.params.id;
       await checkFotangAccess(req, id);
-      if (isNaN(id)) {
-        res.status(400).json({ message: "ID tidak valid" });
-        return;
-      }
 
       const qiudao = await getQiuDaoById(id);
       if (!qiudao) {

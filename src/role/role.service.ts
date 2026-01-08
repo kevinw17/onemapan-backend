@@ -177,7 +177,7 @@ export const deleteRoleById = async (
 };
 
 export const assignRoleToUser = async (
-    user_id: number,
+    user_id: string,
     role_id: number,
     userRole: string,
     userArea: string | null
@@ -211,7 +211,7 @@ export const assignRoleToUser = async (
 };
 
 export const removeRoleFromUser = async (
-    user_id: number,
+    user_id: string,
     role_id: number,
     userRole: string,
     userArea: string | null
@@ -230,7 +230,7 @@ export const removeRoleFromUser = async (
     return await deleteUserRole(user_id, role_id);
 };
 
-export const getRolesByUserId = async (user_id: number): Promise<(UserRole & { role: Role })[]> => {
+export const getRolesByUserId = async (user_id: string): Promise<(UserRole & { role: Role })[]> => {
     if (!user_id || typeof user_id !== "number") {
         throw new Error("ID user tidak valid");
     }

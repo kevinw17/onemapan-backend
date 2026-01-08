@@ -13,7 +13,7 @@ import { Prisma, User, Gender, BloodType, MaritalStatus, SpiritualStatus, Korwil
 
 interface RegisterUserInput {
   user_credential?: number;
-  qiu_dao_id: number | string;
+  qiu_dao_id: string;
   domicile_location_id: number | string;
   id_card_location_id: number | string;
   full_name: string;
@@ -97,8 +97,9 @@ export const registerUser = async (body: RegisterUserInput): Promise<void> => {
   }
 
   const user = await createUser({
+    user_info_id: qiu_dao_id,
     qiudao: {
-      connect: { qiu_dao_id: parseInt(qiu_dao_id as string) },
+      connect: { qiu_dao_id },
     },
     full_name,
     mandarin_name,
@@ -116,20 +117,24 @@ export const registerUser = async (body: RegisterUserInput): Promise<void> => {
     education_major,
     job_name,
     id_card_location: {
-      connect: { location_id: parseInt(id_card_location_id as string) },
+      connect: { 
+        location_id: typeof id_card_location_id === "string" 
+          ? parseInt(id_card_location_id) 
+          : id_card_location_id 
+      },
     },
     domicile_location: {
-      connect: { location_id: parseInt(domicile_location_id as string) },
+      connect: { 
+        location_id: typeof domicile_location_id === "string" 
+          ? parseInt(domicile_location_id) 
+          : domicile_location_id 
+      },
     },
     ...(connectCredential && { userCredential: connectCredential }),
   });
 
   if (spiritual_status) {
-    const status = assertEnumValue(
-      SpiritualStatus,
-      spiritual_status,
-      "spiritual_status"
-    );
+    const status = assertEnumValue(SpiritualStatus, spiritual_status, "spiritual_status");
 
     await prisma.spiritualUser.create({
       data: {
@@ -152,7 +157,7 @@ interface FetchAllUsersOptions {
   gender?: string | string[];
   blood_type?: string | string[];
   userArea?: Korwil;
-  userId?: number;
+  userId?: string;
   fotangId?: number;
 }
 
@@ -192,7 +197,7 @@ export const fetchAllUsers = async ({
   return result;
 };
 
-export const getUserById = async (id: number): Promise<UserWithRelations | null> => {
+export const getUserById = async (id: string): Promise<UserWithRelations | null> => {
   const user = await findUserById(id);
   if (!user) return null;
 
@@ -203,30 +208,26 @@ export const getUserById = async (id: number): Promise<UserWithRelations | null>
 };
 
 export const updateUserById = async (
-  id: number,
+  id: string,
   updateData: UpdateUserInput
 ): Promise<User> => {
-  if (!id || typeof id !== "number") {
+  if (!id || typeof id !== "string") {
     throw new Error("ID user tidak valid");
   }
 
   const { spiritual_status, ...userUpdateData } = updateData;
 
   if (spiritual_status && typeof spiritual_status === "string") {
-    const status = assertEnumValue(
-      SpiritualStatus,
-      spiritual_status,
-      "spiritual_status"
-    );
+    const status = assertEnumValue(SpiritualStatus, spiritual_status, "spiritual_status");
 
     return await updateUserWithSpiritualStatus(id, userUpdateData, status);
   }
 
-  return await updateUser(id, updateData);
+  return await updateUser(id, userUpdateData);
 };
 
-export const deleteUserById = async (id: number): Promise<User> => {
-  if (!id || typeof id !== "number") {
+export const deleteUserById = async (id: string): Promise<User> => {
+  if (!id || typeof id !== "string") {
     throw new Error("ID user tidak valid");
   }
 
@@ -234,7 +235,7 @@ export const deleteUserById = async (id: number): Promise<User> => {
 };
 
 export const updateOwnProfile = async (
-  userId: number,
+  userId: string,
   updateData: UpdateUserInput
 ): Promise<User> => {
   const allowedFields: UpdateUserInput = {

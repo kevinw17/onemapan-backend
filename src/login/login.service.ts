@@ -14,7 +14,7 @@ interface LoginResult {
   message: string;
   token: string;
   user_data: Omit<UserCredential, "hashed_password"> & {
-    user_info_id?: number;
+    user_info_id?: string;
     scope?: string;
     role?: string;
     area?: string | null;
@@ -68,17 +68,11 @@ export const loginUser = async ({ username, password }: LoginInput): Promise<Log
   }
 
   const normalizedRole = primaryRole.toLowerCase().replace(/\s+/g, "");
-
-  // Di dalam loginUser, setelah tentukan primaryRole, scope, area, dll
-
-  // Ambil permissions dari role user (asumsi user punya 1 role utama)
   let permissions: any = {};
 
   if (userInfo.userRoles && userInfo.userRoles.length > 0) {
-    // Ambil dari role pertama (atau bisa combine semua kalau multiple role)
     permissions = userInfo.userRoles[0].role.permissions || {};
 
-    // KALAU MAU COMBINE SEMUA ROLE (RECOMMENDED KALAU USER BISA PUNYA >1 ROLE)
     userInfo.userRoles.forEach((userRole) => {
       if (userRole.role.permissions) {
         Object.assign(permissions, userRole.role.permissions);
@@ -86,7 +80,6 @@ export const loginUser = async ({ username, password }: LoginInput): Promise<Log
     });
   }
 
-  // Override untuk role nasional (Super Admin, Ketua, Sekjen) — pastikan full access
   if (
     normalizedRole === "superadmin" ||
     normalizedRole === "ketualembaga" ||
@@ -96,7 +89,6 @@ export const loginUser = async ({ username, password }: LoginInput): Promise<Log
       ...permissions,
       umat: { create: true, read: true, update: true, delete: true, scope: "nasional" },
       qiudao: { create: true, read: true, update: true, delete: true, scope: "nasional" },
-      // tambah module lain kalau perlu
     };
   }
 
@@ -108,7 +100,7 @@ export const loginUser = async ({ username, password }: LoginInput): Promise<Log
     };
   }
 
-  // Admin Wilayah biasa
+  // Admin Wilayah
   if (normalizedRole === "admin") {
     permissions = {
       ...permissions,
@@ -132,18 +124,19 @@ export const loginUser = async ({ username, password }: LoginInput): Promise<Log
     tokenScope = "wilayah";
   }
 
-  // GENERATE TOKEN DENGAN scope YANG BENAR
   const token = jwt.sign(
     {
       credential_id: user.user_credential,
       username: user.username,
       user_info_id: userInfo.user_info_id,
+      full_name: userInfo.full_name,
+      mandarin_name: userInfo.mandarin_name,
       role: primaryRole,
       normalizedRole,
-      scope: tokenScope,  // ← INI YANG DIPAKAI BACKEND UNTUK FILTER DATA
+      scope: tokenScope,
       area,
       fotang_id: fotangId,
-      permissions  // ← INI DIPAKAI FRONTEND UNTUK TAMPILKAN UI ADMIN
+      permissions
     },
     process.env.JWT_SECRET as string,
     { expiresIn: process.env.JWT_EXPIRES_IN || "1d" }

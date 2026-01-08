@@ -4,7 +4,7 @@ import { createQiuDao } from "../profile/qiudao/qiudao.repository";
 import { createUser } from "../profile/user/user.repository";
 import prisma from "../db";
 import { CellValue } from "exceljs";
-import { BloodType, Gender, Korwil, MaritalStatus, SpiritualStatus } from "@prisma/client";
+import { BloodType, Gender, Korwil, MaritalStatus, Prisma, SpiritualStatus } from "@prisma/client";
 import { Fotang } from "@prisma/client";
 import { Buffer } from "buffer"; 
 
@@ -44,187 +44,342 @@ function parseSpiritualStatus(value?: string): SpiritualStatus {
     throw new Error(`Status rohani tidak valid: '${value}'`);
 }
 
-export function parseKorwil(value?: string): Korwil {
-    const val = (value ?? "").trim().replace(/\s+/g, "_");
-    const korwil = val[0].toUpperCase() + val.slice(1);
-    if (Object.values(Korwil).includes(korwil as Korwil)) {
-        return korwil as Korwil;
-    }
-    throw new Error(`Korwil tidak valid: '${value}'`);
+function safeParseKorwil(value?: string): Korwil | undefined {
+    if (!value) return undefined;
+
+    const cleaned = value.trim().toLowerCase()
+        .replace("wilayah", "")
+        .replace(/\s+/g, "")
+        .replace("_", "");
+
+    const num = parseInt(cleaned, 10);
+    if (isNaN(num) || num < 1 || num > 6) return undefined;
+
+    return `Korwil_${num}` as Korwil;
 }
 
 async function getFotang(data: {
-    location_name: string;
-    localityId: number;
-    postal_code?: string;
-    area: Korwil;
+    location_name?: string;
+    location_mandarin_name?: string;
+    area?: Korwil;
 }): Promise<Fotang | null> {
-    const { location_name, localityId, postal_code, area } = data;
-    const existingFotang = await prisma.fotang.findFirst({
-        where: {
+    const { location_name, location_mandarin_name, area } = data;
+
+    if (!location_name && !location_mandarin_name) return null;
+
+    const orConditions: Prisma.FotangWhereInput["OR"] = [];
+
+    if (location_name) {
+        orConditions.push({
             location_name: {
-                equals: location_name,
+                equals: location_name.trim(),
                 mode: "insensitive",
             },
-            localityId: localityId,
-            postal_code: postal_code,
-            area: area,
-        },
-    });
+        });
+    }
 
-    if (!existingFotang) {
-        const fallbackFotang = await prisma.fotang.findFirst({
-            where: {
-                location_name: {
-                    equals: location_name,
-                    mode: "insensitive",
-                },
+    if (location_mandarin_name) {
+        orConditions.push({
+            location_mandarin_name: {
+                equals: location_mandarin_name.trim(),
+                mode: "insensitive",
             },
         });
-        if (fallbackFotang) {
-            return fallbackFotang;
-        }
     }
-    return existingFotang;
+
+    if (area && orConditions.length > 0) {
+        const exactMatch = await prisma.fotang.findFirst({
+            where: {
+                AND: [
+                    { area },
+                    { OR: orConditions },
+                ],
+            },
+        });
+        if (exactMatch) return exactMatch;
+    }
+
+    return await prisma.fotang.findFirst({
+        where: {
+            OR: orConditions,
+        },
+    });
+}
+
+function getCellValue(row: ExcelJS.Row, headerMap: Record<string, number>, headerName: string): CellValue {
+    const col = headerMap[headerName];
+    if (!col) return undefined;
+    return row.getCell(col).value;
 }
 
 export const importUmatFromExcel = async (buffer: Buffer | ArrayBuffer) => {
     const workbook = new ExcelJS.Workbook();
-    const normalizedBuffer = Buffer.isBuffer(buffer)
-        ? buffer
-        : Buffer.from(new Uint8Array(buffer as ArrayBuffer));
-    // @ts-ignore
-    await workbook.xlsx.load(normalizedBuffer);
+    let data: Buffer | Uint8Array;
+
+    if (Buffer.isBuffer(buffer)) {
+        data = buffer;
+    } else {
+        data = new Uint8Array(buffer);
+    }
+
+    await workbook.xlsx.load(data as any);
 
     const umatSheet = workbook.getWorksheet("Umat");
     if (!umatSheet) throw new Error("Sheet 'Umat' tidak ditemukan");
 
+    // Baca header dengan aman
     const headerMap: Record<string, number> = {};
-    umatSheet.getRow(1).eachCell((cell, colNumber) => {
-        if (typeof cell.value === "string") {
-            headerMap[cell.value] = colNumber;
-        }
-    });
+    const headerRow = umatSheet.getRow(1);
+    const values = headerRow.values;
 
-    for (let i = 2; i <= umatSheet.rowCount; i++) {
-        const row = umatSheet.getRow(i);
-
-        const domicileLocation = await getOrCreateLocation({
-            location_name: safeString(row.getCell(headerMap["Nama Lokasi Domisili"])?.value) ?? "-",
-            street: safeString(row.getCell(headerMap["Alamat Domisili"])?.value),
-            localityId: await getLocalityId({
-                name: safeString(row.getCell(headerMap["Desa / Kelurahan Domisili"])?.value),
-                districtName: safeString(row.getCell(headerMap["Kecamatan Domisili"])?.value),
-                cityName: safeString(row.getCell(headerMap["Kabupaten / Kota Domisili"])?.value),
-                provinceName: safeString(row.getCell(headerMap["Provinsi Domisili"])?.value),
-            }),
-            postal_code: safeString(row.getCell(headerMap["Kode Pos Domisili"])?.value),
-        });
-
-        const idCardLocation = await getOrCreateLocation({
-            location_name: safeString(row.getCell(headerMap["Nama Lokasi Sesuai KTP"])?.value) ?? "-",
-            street: safeString(row.getCell(headerMap["Alamat Sesuai KTP"])?.value),
-            localityId: await getLocalityId({
-                name: safeString(row.getCell(headerMap["Desa / Kelurahan Sesuai KTP"])?.value),
-                districtName: safeString(row.getCell(headerMap["Kecamatan Sesuai KTP"])?.value),
-                cityName: safeString(row.getCell(headerMap["Kabupaten / Kota Sesuai KTP"])?.value),
-                provinceName: safeString(row.getCell(headerMap["Provinsi Sesuai KTP"])?.value),
-            }),
-            postal_code: safeString(row.getCell(headerMap["Kode Pos Sesuai KTP"])?.value),
-        });
-
-        if (!domicileLocation || !idCardLocation) {
-            continue;
-        }
-
-        const qdMandarinName = safeString(row.getCell(headerMap["Nama Qiudao (Mandarin)"])?.value);
-        const qdName = safeString(row.getCell(headerMap["Nama Qiudao"])?.value);
-
-        let qiuDao = null;
-
-        if (qdMandarinName) {
-            qiuDao = await prisma.qiuDao.findFirst({
-                where: { qiu_dao_mandarin_name: qdMandarinName },
-            });
-        }
-
-        if (!qiuDao && qdName) {
-            qiuDao = await prisma.qiuDao.findFirst({
-                where: { qiu_dao_name: qdName },
-            });
-        }
-
-        if (qiuDao) {
-            const existingUserWithQiuDao = await prisma.user.findFirst({
-                where: { qiu_dao_id: qiuDao.qiu_dao_id },
-            });
-
-            if (existingUserWithQiuDao) {
-                continue;
+    if (Array.isArray(values)) {
+        values.forEach((value, index) => {
+            if (index >= 1 && typeof value === "string") {
+                const trimmed = value.trim();
+                if (trimmed) {
+                    headerMap[trimmed] = index;
+                }
             }
-        }
-
-        if (!qiuDao) {
-            continue;
-        }
-
-        await createUser({
-            full_name: safeString(row.getCell(headerMap["Nama Lengkap"])?.value) ?? "-",
-            mandarin_name: safeString(row.getCell(headerMap["Nama Mandarin"])?.value),
-            is_qing_kou: String(row.getCell(headerMap["Status Vegetarian"])?.value || "").toLowerCase() === "ya",
-            gender: parseGender(safeString(row.getCell(headerMap["Jenis Kelamin"])?.value)),
-            blood_type: parseBloodType(safeString(row.getCell(headerMap["Golongan Darah"])?.value)),
-            place_of_birth: safeString(row.getCell(headerMap["Tempat Lahir"])?.value) ?? "-",
-            date_of_birth: new Date(String(row.getCell(headerMap["Tanggal Lahir"])?.value)),
-            date_of_death: row.getCell(headerMap["Tanggal Wafat"])?.value
-                ? new Date(String(row.getCell(headerMap["Tanggal Wafat"])?.value))
-                : null,
-            id_card_number: safeString(row.getCell(headerMap["No. KTP"])?.value),
-            phone_number: safeString(row.getCell(headerMap["No. HP"])?.value) ?? "-",
-            email: safeString(row.getCell(headerMap["Email"])?.value),
-            marital_status: parseMaritalStatus(safeString(row.getCell(headerMap["Status Perkawinan"])?.value)),
-            last_education_level: safeString(row.getCell(headerMap["Pendidikan Terakhir"])?.value),
-            education_major: safeString(row.getCell(headerMap["Jurusan Pendidikan"])?.value),
-            job_name: safeString(row.getCell(headerMap["Pekerjaan"])?.value),
-            domicile_location: {
-                connect: { location_id: domicileLocation.location_id },
-            },
-            id_card_location: {
-                connect: { location_id: idCardLocation.location_id },
-            },
-            qiudao: {
-                connect: { qiu_dao_id: qiuDao.qiu_dao_id },
-            },
-            spiritualUser: {
-                create: {
-                    spiritual_status: parseSpiritualStatus(
-                        safeString(row.getCell(headerMap["Status Rohani"])?.value)
-                    ),
-                },
-            },
+        });
+    } else if (values && typeof values === "object") {
+        Object.keys(values).forEach(key => {
+            const colIndex = parseInt(key);
+            const value = (values as any)[key];
+            if (!isNaN(colIndex) && colIndex >= 1 && typeof value === "string") {
+                const trimmed = value.trim();
+                if (trimmed) {
+                    headerMap[trimmed] = colIndex;
+                }
+            }
         });
     }
 
-    return { message: "Import selesai" };
+    let successCount = 0;
+    let skipCount = 0;
+    let errorCount = 0;
+
+    for (let rowIndex = 2; rowIndex <= umatSheet.rowCount; rowIndex++) {
+        const row = umatSheet.getRow(rowIndex);
+
+        try {
+            const getVal = (header: string): CellValue => {
+                const col = headerMap[header];
+                if (!col) return undefined;
+                return row.getCell(col).value;
+            };
+
+            const fullName = safeString(getVal("Nama Lengkap"));
+            const mandarinName = safeString(getVal("Nama Mandarin"));
+            const qdName = safeString(getVal("Nama Qiudao"));
+            const qdMandarinName = safeString(getVal("Nama Qiudao (Mandarin)"));
+            const genderStr = safeString(getVal("Jenis Kelamin"));
+            const bloodTypeStr = safeString(getVal("Golongan Darah"));
+            const placeOfBirth = safeString(getVal("Tempat Lahir")) ?? "-";
+            const dateOfBirthStr = getVal("Tanggal Lahir");
+            const dateOfDeathStr = getVal("Tanggal Wafat");
+            const idCardNumber = safeString(getVal("No. KTP"));
+            const phoneNumber = safeString(getVal("No. HP"));
+            const email = safeString(getVal("Email"));
+            const maritalStatusStr = safeString(getVal("Status Perkawinan"));
+            const educationLevel = safeString(getVal("Pendidikan Terakhir"));
+            const educationMajor = safeString(getVal("Jurusan Pendidikan"));
+            const jobName = safeString(getVal("Pekerjaan"));
+            const isQingKouStr = safeString(getVal("Status Vegetarian"));
+            const spiritualStatusStr = safeString(getVal("Status Rohani"));
+
+            // Validasi wajib
+            if (!fullName || !genderStr || !dateOfBirthStr || (!qdName && !qdMandarinName)) {
+                skipCount++;
+                console.log(`Baris ${rowIndex}: Skip - data wajib kosong`);
+                continue;
+            }
+
+            // Parse gender
+            const gender = parseGender(genderStr);
+
+            // Parse tanggal lahir
+            const dateOfBirth = new Date(String(dateOfBirthStr));
+            if (isNaN(dateOfBirth.getTime())) {
+                skipCount++;
+                console.log(`Baris ${rowIndex}: Tanggal lahir tidak valid`);
+                continue;
+            }
+
+            // Optional fields
+            const bloodType = bloodTypeStr ? parseBloodType(bloodTypeStr) : null;
+            const maritalStatus = maritalStatusStr ? parseMaritalStatus(maritalStatusStr) : null;
+            const spiritualStatus = spiritualStatusStr ? parseSpiritualStatus(spiritualStatusStr) : null;
+            const qingKouLower = String(isQingKouStr || "").toLowerCase().trim();
+            const isQingKou = ["ya", "sudah", "vegetarian", "qingkou", "v"].includes(qingKouLower);
+
+            let dateOfDeath: Date | null = null;
+            if (dateOfDeathStr) {
+                const parsed = new Date(String(dateOfDeathStr));
+                if (!isNaN(parsed.getTime())) {
+                    dateOfDeath = parsed;
+                }
+            }
+
+            // Cari Qiudao
+            let qiuDao = null;
+            if (qdMandarinName) {
+                qiuDao = await prisma.qiuDao.findFirst({
+                    where: { qiu_dao_mandarin_name: { equals: qdMandarinName, mode: "insensitive" } },
+                });
+            }
+            if (!qiuDao && qdName) {
+                qiuDao = await prisma.qiuDao.findFirst({
+                    where: { qiu_dao_name: { equals: qdName, mode: "insensitive" } },
+                });
+            }
+
+            if (!qiuDao) {
+                skipCount++;
+                console.log(`Baris ${rowIndex}: Qiudao tidak ditemukan`);
+                continue;
+            }
+
+            if (await prisma.user.findUnique({ where: { qiu_dao_id: qiuDao.qiu_dao_id } })) {
+                skipCount++;
+                console.log(`Baris ${rowIndex}: User sudah ada`);
+                continue;
+            }
+
+            // === DOMISILI ===
+            const domStreet = safeString(getVal("Alamat Domisili"));
+            const domKel = safeString(getVal("Desa / Kelurahan Domisili"));
+            const domKec = safeString(getVal("Kecamatan Domisili"));
+            const domKota = safeString(getVal("Kabupaten / Kota Domisili"));
+            const domProv = safeString(getVal("Provinsi Domisili"));
+            const domPos = safeString(getVal("Kode Pos Domisili"));
+
+            let domicileLocation;
+            if (domKel || domKec || domKota || domProv) {
+                const localityId = await getLocalityId({
+                    name: domKel,
+                    districtName: domKec,
+                    cityName: domKota,
+                    provinceName: domProv,
+                });
+                domicileLocation = await getOrCreateLocation({
+                    location_name: "-",
+                    street: domStreet || undefined,
+                    localityId,
+                    postal_code: domPos || undefined,
+                });
+            } else {
+                domicileLocation = await getOrCreateLocation({
+                    location_name: "-",
+                    street: undefined,
+                    localityId: 1,
+                    postal_code: undefined,
+                });
+            }
+
+            // === KTP ===
+            const ktpStreet = safeString(getVal("Alamat Sesuai KTP"));
+            const ktpKel = safeString(getVal("Desa / Kelurahan Sesuai KTP"));
+            const ktpKec = safeString(getVal("Kecamatan Sesuai KTP"));
+            const ktpKota = safeString(getVal("Kabupaten / Kota Sesuai KTP"));
+            const ktpProv = safeString(getVal("Provinsi Sesuai KTP"));
+            const ktpPos = safeString(getVal("Kode Pos Sesuai KTP"));
+
+            let idCardLocation;
+            if (ktpKel || ktpKec || ktpKota || ktpProv) {
+                const localityId = await getLocalityId({
+                    name: ktpKel,
+                    districtName: ktpKec,
+                    cityName: ktpKota,
+                    provinceName: ktpProv,
+                });
+                idCardLocation = await getOrCreateLocation({
+                    location_name: "-",
+                    street: ktpStreet || undefined,
+                    localityId,
+                    postal_code: ktpPos || undefined,
+                });
+            } else {
+                idCardLocation = await getOrCreateLocation({
+                    location_name: "-",
+                    street: undefined,
+                    localityId: 1,
+                    postal_code: undefined,
+                });
+            }
+
+            await createUser({
+                user_info_id: qiuDao.qiu_dao_id,
+                full_name: fullName,
+                mandarin_name: mandarinName || null,
+                is_qing_kou: isQingKou,
+                gender,
+                blood_type: bloodType,
+                place_of_birth: placeOfBirth,
+                date_of_birth: dateOfBirth,
+                date_of_death: dateOfDeath,
+                id_card_number: idCardNumber || null,
+                phone_number: phoneNumber || null,
+                email: email || null,
+                marital_status: maritalStatus,
+                last_education_level: educationLevel || null,
+                education_major: educationMajor || null,
+                job_name: jobName || null,
+                domicile_location: { connect: { location_id: domicileLocation.location_id } },
+                id_card_location: { connect: { location_id: idCardLocation.location_id } },
+                qiudao: { connect: { qiu_dao_id: qiuDao.qiu_dao_id } },
+                spiritualUser: spiritualStatus ? { create: { spiritual_status: spiritualStatus } } : undefined,
+            });
+
+            successCount++;
+        } catch (err: any) {
+            console.error(`Error baris ${rowIndex}:`, err.message);
+            errorCount++;
+        }
+    }
+
+    return {
+        message: `Import Umat selesai: ${successCount} berhasil, ${skipCount} dilewati, ${errorCount} error`,
+    };
 };
 
 export const importQiudaoFromExcel = async (buffer: Buffer | ArrayBuffer) => {
     const workbook = new ExcelJS.Workbook();
-    const normalizedBuffer = Buffer.isBuffer(buffer)
+
+    const data: Buffer | Uint8Array = Buffer.isBuffer(buffer)
         ? buffer
-        : Buffer.from(new Uint8Array(buffer as ArrayBuffer));
-    // @ts-ignore
-    await workbook.xlsx.load(normalizedBuffer);
+        : new Uint8Array(buffer);
+
+    await workbook.xlsx.load(data as any);
 
     const sheet = workbook.getWorksheet("Qiudao");
     if (!sheet) throw new Error("Sheet 'Qiudao' tidak ditemukan");
 
     const headerMap: Record<string, number> = {};
-    sheet.getRow(1).eachCell((cell, colNumber) => {
-        if (typeof cell.value === "string") {
-            headerMap[cell.value] = colNumber;
-        }
-    });
+    const headerRow = sheet.getRow(1);
+
+    const values = headerRow.values;
+
+    if (Array.isArray(values)) {
+        values.forEach((value, index) => {
+            if (index >= 1 && typeof value === "string") {
+                const trimmed = value.trim();
+                if (trimmed) {
+                    headerMap[trimmed] = index;
+                }
+            }
+        });
+    } else if (values && typeof values === "object") {
+        Object.keys(values).forEach(key => {
+            const colIndex = parseInt(key);
+            const value = (values as any)[key];
+            if (!isNaN(colIndex) && colIndex >= 1 && typeof value === "string") {
+                const trimmed = value.trim();
+                if (trimmed) {
+                    headerMap[trimmed] = colIndex;
+                }
+            }
+        });
+    }
 
     let successCount = 0;
     let duplicateCount = 0;
@@ -233,91 +388,105 @@ export const importQiudaoFromExcel = async (buffer: Buffer | ArrayBuffer) => {
     for (let i = 2; i <= sheet.rowCount; i++) {
         const row = sheet.getRow(i);
 
-        const qiu_dao_name = safeString(row.getCell(headerMap["Nama Qiudao (Indonesia)"])?.value);
-        const qiu_dao_mandarin_name = safeString(row.getCell(headerMap["Nama Qiudao (Mandarin)"])?.value);
-        const dian_chuan_shi_name = safeString(row.getCell(headerMap["Nama Indonesia Pandita"])?.value);
-        const dian_chuan_shi_mandarin_name = safeString(row.getCell(headerMap["Nama Mandarin Pandita"])?.value);
-        const yin_shi_qd_name = safeString(row.getCell(headerMap["Nama Indonesia Guru Pengajak"])?.value);
-        const yin_shi_qd_mandarin_name = safeString(row.getCell(headerMap["Nama Mandarin Guru Pengajak"])?.value);
-        const bao_shi_qd_name = safeString(row.getCell(headerMap["Nama Indonesia Guru Penanggung"])?.value);
-        const bao_shi_qd_mandarin_name = safeString(row.getCell(headerMap["Nama Mandarin Guru Penanggung"])?.value);
-        const lunar_sui_ci_year = safeString(row.getCell(headerMap["Tahun Lunar"])?.value);
-        const lunar_month = safeString(row.getCell(headerMap["Bulan Lunar"])?.value);
-        const lunar_day = safeString(row.getCell(headerMap["Tanggal Lunar"])?.value);
-        const lunar_shi_chen_time = safeString(row.getCell(headerMap["Waktu Lunar"])?.value);
-
-        if (!lunar_sui_ci_year || !lunar_month || !lunar_day || !lunar_shi_chen_time) {
-            errorCount++;
-            continue;
-        }
-
-        const locationData = {
-            location_name: safeString(row.getCell(headerMap["Nama Vihara"])?.value) ?? "-",
-            localityId: await getLocalityId({
-                name: safeString(row.getCell(headerMap["Desa / Kelurahan"])?.value),
-                districtName: safeString(row.getCell(headerMap["Kecamatan"])?.value),
-                cityName: safeString(row.getCell(headerMap["Kabupaten / Kota"])?.value),
-                provinceName: safeString(row.getCell(headerMap["Provinsi"])?.value),
-            }),
-            postal_code: safeString(row.getCell(headerMap["Kode Pos"])?.value),
-            area: parseKorwil(safeString(row.getCell(headerMap["Wilayah"])?.value)) || "Korwil_1",
-        };
-
-        const location = await getFotang(locationData);
-        if (!location) {
-            errorCount++;
-            continue;
-        }
-
-        const existing = await prisma.qiuDao.findFirst({
-            where: {
-                qiu_dao_name,
-                qiu_dao_mandarin_name,
-                qiu_dao_location_id: location.fotang_id,
-                dian_chuan_shi: {
-                    name: dian_chuan_shi_name,
-                    mandarin_name: dian_chuan_shi_mandarin_name,
-                },
-                yin_shi_qd_name,
-                yin_shi_qd_mandarin_name,
-                bao_shi_qd_name,
-                bao_shi_qd_mandarin_name,
-                lunar_sui_ci_year,
-                lunar_month,
-                lunar_day,
-                lunar_shi_chen_time,
-            },
-        });
-
-        if (existing) {
-            duplicateCount++;
-            continue;
-        }
-
-        const pandita = await prisma.dianChuanShi.findFirst({
-            where: {
-                OR: [
-                    { name: dian_chuan_shi_name },
-                    { mandarin_name: dian_chuan_shi_mandarin_name },
-                ],
-            },
-        });
-
-        if (!pandita) {
-            errorCount++;
-            continue;
-        }
-
         try {
+            const qiu_dao_name = safeString(getCellValue(row, headerMap, "Nama Qiudao (Indonesia)"));
+            const qiu_dao_mandarin_name = safeString(getCellValue(row, headerMap, "Nama Qiudao (Mandarin)"));
+            const location_name = safeString(getCellValue(row, headerMap, "Nama Vihara"));
+            const location_mandarin_name = safeString(getCellValue(row, headerMap, "Nama Vihara (Mandarin)"));
+            const rawWilayah = safeString(getCellValue(row, headerMap, "Wilayah"));
+            const dian_chuan_shi_name = safeString(getCellValue(row, headerMap, "Nama Indonesia Pandita"));
+            const dian_chuan_shi_mandarin_name = safeString(getCellValue(row, headerMap, "Nama Mandarin Pandita"));
+            const yin_shi_qd_name = safeString(getCellValue(row, headerMap, "Nama Indonesia Guru Pengajak"));
+            const yin_shi_qd_mandarin_name = safeString(getCellValue(row, headerMap, "Nama Mandarin Guru Pengajak"));
+            const bao_shi_qd_name = safeString(getCellValue(row, headerMap, "Nama Indonesia Guru Penanggung"));
+            const bao_shi_qd_mandarin_name = safeString(getCellValue(row, headerMap, "Nama Mandarin Guru Penanggung"));
+            const lunar_sui_ci_year = safeString(getCellValue(row, headerMap, "Tahun Lunar"));
+            const lunar_month = safeString(getCellValue(row, headerMap, "Bulan Lunar"));
+            const lunar_day = safeString(getCellValue(row, headerMap, "Tanggal Lunar"));
+            const lunar_shi_chen_time = safeString(getCellValue(row, headerMap, "Waktu Lunar"));
+
+            if (!qiu_dao_name && !qiu_dao_mandarin_name) {
+                errorCount++;
+                console.log(`Baris ${i}: Nama Qiudao kosong`);
+                continue;
+            }
+
+            if (!lunar_sui_ci_year || !lunar_month || !lunar_day || !lunar_shi_chen_time) {
+                errorCount++;
+                console.log(`Baris ${i}: Data lunar tidak lengkap`);
+                continue;
+            }
+
+            const area = safeParseKorwil(rawWilayah);
+
+            const fotang = await getFotang({
+                location_name,
+                location_mandarin_name,
+                area,
+            });
+
+            if (!fotang) {
+                errorCount++;
+                console.log(`Baris ${i}: Vihara tidak ditemukan → "${location_name}" / "${location_mandarin_name}" (Wilayah: "${rawWilayah}")`);
+                continue;
+            }
+
+            const orConditions: Prisma.QiuDaoWhereInput[] = [];
+            if (qiu_dao_name) {
+                orConditions.push({ qiu_dao_name: { equals: qiu_dao_name, mode: "insensitive" } });
+            }
+            if (qiu_dao_mandarin_name) {
+                orConditions.push({ qiu_dao_mandarin_name: { equals: qiu_dao_mandarin_name, mode: "insensitive" } });
+            }
+
+            const existing = await prisma.qiuDao.findFirst({
+                where: {
+                    qiu_dao_location_id: fotang.fotang_id,
+                    OR: orConditions,
+                },
+            });
+
+            if (existing) {
+                duplicateCount++;
+                console.log(`Baris ${i}: Duplikat → ${qiu_dao_name || qiu_dao_mandarin_name}`);
+                continue;
+            }
+
+            const pandita = await prisma.dianChuanShi.findFirst({
+                where: {
+                    OR: [
+                        dian_chuan_shi_name ? { name: { equals: dian_chuan_shi_name, mode: "insensitive" } } : null,
+                        dian_chuan_shi_mandarin_name ? { mandarin_name: { equals: dian_chuan_shi_mandarin_name, mode: "insensitive" } } : null,
+                    ].filter(Boolean) as any,
+                },
+            });
+
+            if (!pandita) {
+                errorCount++;
+                console.log(`Baris ${i}: Pandita tidak ditemukan → "${dian_chuan_shi_name}" / "${dian_chuan_shi_mandarin_name}"`);
+                continue;
+            }
+
+            const korwilDigit = fotang.area.replace("Korwil_", "");
+            const viharaIdPadded = fotang.fotang_id.toString().padStart(4, "0");
+
+            const totalInVihara = await prisma.qiuDao.count({
+                where: { qiu_dao_location_id: fotang.fotang_id },
+            });
+
+            const seriIndex = Math.floor(totalInVihara / 999999);
+            const seriAlpha = String.fromCharCode(65 + seriIndex);
+            const urutanDalamSeri = (totalInVihara % 999999) + 1;
+            const nomorUrut = urutanDalamSeri.toString().padStart(6, "0");
+
+            const generatedQiuDaoId = `${korwilDigit}${viharaIdPadded}-${seriAlpha}${nomorUrut}`;
+
             await createQiuDao({
+                qiu_dao_id: generatedQiuDaoId,
                 qiu_dao_name,
                 qiu_dao_mandarin_name,
-                qiu_dao_location: {
-                    connect: { fotang_id: location.fotang_id },
-                },
-                dian_chuan_shi: {
-                    connect: { id: pandita.id },
-                },
+                qiu_dao_location: { connect: { fotang_id: fotang.fotang_id } },
+                dian_chuan_shi: { connect: { id: pandita.id } },
                 yin_shi_qd_name,
                 yin_shi_qd_mandarin_name,
                 bao_shi_qd_name,
@@ -327,15 +496,18 @@ export const importQiudaoFromExcel = async (buffer: Buffer | ArrayBuffer) => {
                 lunar_day,
                 lunar_shi_chen_time,
             });
+
             successCount++;
-        } catch (error) {
+            console.log(`Baris ${i}: Berhasil → ${qiu_dao_name || qiu_dao_mandarin_name} di ${fotang.location_name}`);
+
+        } catch (err: any) {
+            console.error(`Error import baris ${i}:`, err.message);
             errorCount++;
-            continue;
         }
     }
 
     const totalProcessed = successCount + duplicateCount + errorCount;
     return {
-        message: `Import selesai: ${successCount} berhasil, ${duplicateCount} duplikat dilewati, ${errorCount} gagal (dari ${totalProcessed} total entri)`,
+        message: `Import Qiudao selesai: ${successCount} berhasil, ${duplicateCount} duplikat dilewati, ${errorCount} gagal (dari ${totalProcessed} entri)`,
     };
 };
