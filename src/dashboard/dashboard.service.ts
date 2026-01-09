@@ -1,5 +1,3 @@
-// src/dashboard/dashboard.service.ts
-
 import prisma from "../db";
 
 export const getDashboardStats = async () => {
@@ -28,11 +26,8 @@ export const getDashboardStats = async () => {
         },
     });
 
-    // AMBIL SEMUA FOTANG & DCS NASIONAL
     const allFotang = await prisma.fotang.findMany();
     const allDCS = await prisma.dianChuanShi.findMany();
-
-    // === NASIONAL ===
     const totalUmatNasional = users.length;
     const totalQingkouNasional = users.filter(u => u.is_qing_kou).length;
     const totalViharaNasional = allFotang.length;
@@ -42,15 +37,11 @@ export const getDashboardStats = async () => {
         u.spiritualUser?.spiritual_status === "FoYuan"
     ).length;
     const totalFuWuYuanNasional = users.filter(u => u.spiritualUser?.is_fuwuyuan).length;
-
-    // Gender Nasional
     const genderNasional = users.reduce((acc, u) => {
         if (u.gender === "Male") acc.Pria++;
         if (u.gender === "Female") acc.Wanita++;
         return acc;
     }, { Pria: 0, Wanita: 0 });
-
-    // Umat per Korwil Nasional
     const korwilMap = users.reduce((acc, u) => {
         const korwil = u.qiudao?.qiu_dao_location?.area || "Unknown";
         acc[korwil] = (acc[korwil] || 0) + 1;
@@ -64,7 +55,6 @@ export const getDashboardStats = async () => {
         return order.indexOf(a.korwil) - order.indexOf(b.korwil);
         });
 
-    // Umat per Provinsi Nasional
     const provinceMap = users.reduce((acc, u) => {
         const province = u.qiudao?.qiu_dao_location?.locality?.district?.city?.province?.name || "Unknown";
         acc[province] = (acc[province] || 0) + 1;
@@ -75,7 +65,6 @@ export const getDashboardStats = async () => {
         .map(([province, umat]) => ({ province, umat }))
         .sort((a, b) => a.province.localeCompare(b.province));
 
-    // === HITUNG TOTAL VIHARA & DCS PER KORWIL ===
     const viharaByKorwil = allFotang.reduce((acc, f) => {
         const korwil = f.area || "Unknown";
         acc[korwil] = (acc[korwil] || 0) + 1;

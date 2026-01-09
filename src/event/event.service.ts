@@ -1,4 +1,3 @@
-// src/features/event/event.service.ts
 import { Event, EventType, Korwil, EventCategory } from "@prisma/client";
 import {
   getAllEvents,
@@ -31,7 +30,6 @@ export const getEvents = async (): Promise<EventWithRelations[]> => {
 export const getFilteredEvents = async (input: FilterEventsInput): Promise<EventWithRelations[]> => {
   const { event_type, area, is_recurring, startDate, endDate, category, province_id, city_id, institution_id } = input;
 
-  // VALIDASI EventType SESUAI PRISMA
   const validEventTypes = [
     "Anniversary",
     "Hari_Besar",
@@ -50,7 +48,6 @@ export const getFilteredEvents = async (input: FilterEventsInput): Promise<Event
     }
   }
 
-  // Validasi area
   const validAreas = ["Korwil_1", "Korwil_2", "Korwil_3", "Korwil_4", "Korwil_5", "Korwil_6"];
   if (area !== undefined) {
     const areas = Array.isArray(area) ? area : [area];

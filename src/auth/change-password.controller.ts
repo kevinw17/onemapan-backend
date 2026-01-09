@@ -1,4 +1,3 @@
-// src/auth/change-password.controller.ts
 import { Router, Request, Response } from "express";
 import { changeUserPassword } from "./change-password.service";
 import { authenticateJWT } from "../middleware/authentication";

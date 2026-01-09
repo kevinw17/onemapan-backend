@@ -1,4 +1,3 @@
-// qiudao.controller.ts
 import { Router, Request, Response, NextFunction } from "express";
 import {
   registerQiuDao,
@@ -7,12 +6,11 @@ import {
   updateQiuDaoById,
   deleteQiuDaoById,
 } from "./qiudao.service";
-import { authenticateJWT, JwtPayload } from "../../middleware/authentication"; // JwtPayload
+import { authenticateJWT, JwtPayload } from "../../middleware/authentication";
 import { authorize } from "../../middleware/authorization";
 import { Korwil } from "@prisma/client";
 import prisma from "../../db";
 
-// TAMBAHKAN INI!
 interface AuthRequest extends Request {
   user?: JwtPayload;
   userScope?: string;
@@ -104,7 +102,6 @@ router.get(
   }
 );
 
-// GET BY ID
 router.get(
   "/:id",
   authenticateJWT,
@@ -116,7 +113,7 @@ router.get(
         return;
       }
 
-      const id = req.params.id; // ← langsung string, tidak parseInt!
+      const id = req.params.id;
       const qiudao = await getQiuDaoById(id);
 
       if (!qiudao) {
@@ -124,7 +121,6 @@ router.get(
         return;
       }
 
-      // Scope: self
       if (req.userScope === "self" && req.userRole !== "user") {
         const user = await prisma.user.findUnique({
           where: { user_info_id: String(req.user.user_info_id) },
@@ -136,7 +132,6 @@ router.get(
         }
       }
 
-      // Scope: fotang
       let fotangId: number | undefined = undefined;
       if (req.userScope === "fotang") {
         const currentUser = await prisma.user.findUnique({
@@ -152,7 +147,6 @@ router.get(
         }
       }
 
-      // Scope: wilayah
       if (req.userScope === "wilayah" && req.userArea) {
         if (qiudao.qiu_dao_location?.area !== req.userArea) {
           res.status(403).json({ message: "Forbidden: QiuDao dari wilayah lain" });
@@ -180,7 +174,7 @@ const checkFotangAccess = async (req: AuthRequest, qiudaoId?: string) => {
 
   if (qiudaoId) {
     const qiudao = await prisma.qiuDao.findUnique({
-      where: { qiu_dao_id: qiudaoId }, // ← string
+      where: { qiu_dao_id: qiudaoId },
       select: { qiu_dao_location_id: true },
     });
     if (qiudao?.qiu_dao_location_id !== allowedFotangId) {
@@ -195,7 +189,6 @@ const checkFotangAccess = async (req: AuthRequest, qiudaoId?: string) => {
   return true;
 };
 
-// CREATE
 router.post(
   "/",
   authenticateJWT,
@@ -228,14 +221,13 @@ router.post(
   }
 );
 
-// UPDATE
 router.patch(
   "/:id",
   authenticateJWT,
   authorize({ feature: "qiudao", action: "update" }),
   async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const id = req.params.id; // ← string langsung
+      const id = req.params.id;
       await checkFotangAccess(req, id);
 
       const qiudao = await getQiuDaoById(id);
@@ -257,7 +249,6 @@ router.patch(
   }
 );
 
-// DELETE — ID
 router.delete(
   "/:id",
   authenticateJWT,

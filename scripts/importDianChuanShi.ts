@@ -4,10 +4,8 @@ import * as readline from 'readline';
 
 const prisma = new PrismaClient();
 
-// Mendefinisikan tipe Korwil berdasarkan enum dari schema.prisma
 type Korwil = 'Korwil_1' | 'Korwil_2' | 'Korwil_3' | 'Korwil_4' | 'Korwil_5' | 'Korwil_6';
 
-// Fungsi untuk mem-parsing baris CSV secara manual dengan menangani kutipan
 function parseCSVLine(line: string): string[] {
     const result: string[] = [];
     let currentField = '';
@@ -30,7 +28,7 @@ function parseCSVLine(line: string): string[] {
         currentField += char;
     }
 
-    result.push(currentField); // Tambahkan field terakhir
+    result.push(currentField);
     return result.map((field) => field.trim().replace(/^"|"$/g, ''));
 }
 
@@ -51,7 +49,7 @@ async function importCSV(path: string): Promise<string[][]> {
         }
         const row = parseCSVLine(line);
         console.log(`Parsed row: ${JSON.stringify(row)}`);
-        if (row.length >= 4) { // Minimal id, name, area, is_fuwuyuan
+        if (row.length >= 4) {
             result.push(row);
         } else {
             console.warn(`Skipping invalid row: ${line}`);
@@ -61,7 +59,6 @@ async function importCSV(path: string): Promise<string[][]> {
     return result;
 }
 
-// Fungsi untuk memvalidasi dan mengonversi nilai area ke enum Korwil
 function validateArea(area: string | undefined): Korwil {
     const validAreas: Korwil[] = ['Korwil_1', 'Korwil_2', 'Korwil_3', 'Korwil_4', 'Korwil_5', 'Korwil_6'];
     const trimmedArea = area?.trim();
@@ -73,7 +70,6 @@ function validateArea(area: string | undefined): Korwil {
 }
 
 async function main() {
-    // Periksa jumlah data di database sebelum impor
     const initialCount = await prisma.dianChuanShi.count();
     console.log(`Total records before import: ${initialCount}`);
 

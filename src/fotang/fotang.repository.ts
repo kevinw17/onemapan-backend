@@ -12,39 +12,6 @@ type FotangImportInput = {
     localityId: number;
 };
 
-// export const createFotangFromImport = async (data: FotangImportInput) => {
-//     if (!data.location_name || !data.localityId) {
-//         throw new Error("Data fotang tidak lengkap");
-//     }
-
-//     const existingFotang = await prisma.fotang.findFirst({
-//         where: {
-//             location_name: data.location_name,
-//             localityId: data.localityId,
-//             street: data.street ?? undefined,
-//         },
-//     });
-
-//     if (existingFotang) {
-//         return existingFotang;
-//     }
-
-//     return await prisma.fotang.create({
-//         data: {
-//             location_name: data.location_name,
-//             location_mandarin_name: data.location_mandarin_name,
-//             street: data.street,
-//             postal_code: data.postal_code,
-//             latitude: data.latitude,
-//             longitude: data.longitude,
-//             area: data.area,
-//             locality: {
-//                 connect: { id: data.localityId },
-//             },
-//         },
-//     });
-// };
-
 export const getAllFotang = async () => {
     return prisma.fotang.findMany({
         include: {

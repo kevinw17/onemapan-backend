@@ -1,4 +1,3 @@
-// src/event/event.repository.ts
 import { Event, Occurrence, Fotang, EventLocation, Institution, Prisma, EventType, Korwil, EventCategory } from "@prisma/client";
 import prisma from "../db";
 
@@ -75,22 +74,18 @@ export const getEventsFiltered = async ({
 }: FilteredEventsOptions): Promise<EventWithRelations[]> => {
   const where: Prisma.EventWhereInput = {};
 
-  // Event type filter
   if (event_type) {
     where.event_type = Array.isArray(event_type) ? { in: event_type } : event_type;
   }
 
-  // Category filter
   if (category) {
     where.category = Array.isArray(category) ? { in: category } : category;
   }
 
-  // Recurring filter
   if (is_recurring !== undefined) {
     where.is_recurring = is_recurring;
   }
 
-  // Area (Korwil) filter
   if (area !== undefined && area !== null) {
     const areaFilter = Array.isArray(area) ? { in: area } : area;
     where.OR = [
@@ -99,7 +94,6 @@ export const getEventsFiltered = async ({
     ];
   }
 
-  // === FILTER PROVINSI & KOTA — SUPPORT FOTANG + EVENTLOCATION (NO TS ERROR) ===
   if (province_id || city_id) {
     const provinceIds = province_id
       ? (Array.isArray(province_id) ? province_id : [province_id])
@@ -114,11 +108,9 @@ export const getEventsFiltered = async ({
       : [];
 
     if (provinceIds.length === 0 && cityIds.length === 0) {
-      // skip jika tidak ada ID valid
     } else {
       const orConditions: Prisma.EventWhereInput[] = [];
 
-      // 1. Event dengan manual location (EventLocation)
       if (cityIds.length > 0 || provinceIds.length > 0) {
         const cityWhere: Prisma.CityWhereInput = {};
 
@@ -132,7 +124,6 @@ export const getEventsFiltered = async ({
         });
       }
 
-      // 2. Event di Fotang → lewat fotang.locality.district.city
       if (cityIds.length > 0 || provinceIds.length > 0) {
         const cityWhere: Prisma.CityWhereInput = {};
 
@@ -150,7 +141,6 @@ export const getEventsFiltered = async ({
         });
       }
 
-      // Gabungkan dengan kondisi lain (area filter sebelumnya)
       if (where.OR) {
         where.AND = [
           { OR: where.OR },
@@ -163,17 +153,13 @@ export const getEventsFiltered = async ({
     }
   }
 
-  // Date range filter
   if (startDate || endDate) {
     where.occurrences = {
       some: {
-        // Filter berdasarkan greg_occur_date (selalu ada)
         greg_occur_date: {
           ...(startDate && { gte: new Date(startDate) }),
           ...(endDate && { lte: new Date(endDate) }),
         },
-        // Kalau ada greg_end_date, pastikan tidak melebihi endDate
-        // Tapi kalau null, tetap boleh masuk (ini yang penting!)
         ...(endDate && {
           OR: [
             { greg_end_date: { lte: new Date(endDate) } },
@@ -227,8 +213,6 @@ export const getEventById = async (eventId: number): Promise<EventWithRelations 
   });
 };
 
-// createEvent, updateEvent, deleteEvent — TIDAK PERLU DIUBAH
-// (copy-paste dari kode kamu sebelumnya, sudah benar)
 export const createEvent = async (data: CreateEventInput): Promise<EventWithRelations> => {
   return await prisma.$transaction(async (tx) => {
     if (!data.event_name) throw new Error("event_name required");

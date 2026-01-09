@@ -54,10 +54,9 @@ export const registerQiuDao = async (data: QiudaoInput): Promise<QiuDao> => {
 
   if (!fotang) throw new Error("Vihara tidak ditemukan");
 
-  const korwilDigit = fotang.area.replace("Korwil_", ""); // "Korwil_2" → "2"
+  const korwilDigit = fotang.area.replace("Korwil_", "");
   const viharaIdPadded = qiu_dao_location_id.toString().padStart(4, "0");
 
-  // Hitung total QiuDao di vihara ini (untuk urutan)
   const totalInVihara = await prisma.qiuDao.count({
     where: { qiu_dao_location_id }
   });

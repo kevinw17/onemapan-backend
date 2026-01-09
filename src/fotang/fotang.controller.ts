@@ -86,13 +86,13 @@ router.get("/:id", async (req, res) => {
 });
 
 router.post("/", async (req: Request, res: Response) => {
-    console.log("Payload diterima:", req.body); // DEBUG: LIHAT APA YANG KIRIM FRONTEND
+    console.log("Payload diterima:", req.body);
 
     try {
         const newFotang = await createFotang(req.body as Prisma.FotangCreateInput);
         res.status(201).json(newFotang);
     } catch (error: any) {
-        console.error("Error create:", error); // DEBUG
+        console.error("Error create:", error);
         res.status(400).json({ message: error.message });
     }
 });

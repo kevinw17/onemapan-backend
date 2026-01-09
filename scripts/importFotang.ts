@@ -44,17 +44,13 @@ function importCSV(path: string, delimiter: string = ','): FotangCSVRow[] {
 
 async function main() {
     try {
-        // Impor data dari CSV
         const fotangCSV = importCSV('./data/fotang.csv');
-
-        // Validasi dan transformasi data
         const fotangData: FotangData[] = fotangCSV.map((row, index) => {
         const fotang_id = parseInt(row.fotang_id);
         const localityId = parseInt(row.localityId);
         const latitude = row.latitude ? parseInt(row.latitude) : undefined;
         const longitude = row.longitude ? parseInt(row.longitude) : undefined;
 
-        // Validasi fotang_id dan localityId
         if (isNaN(fotang_id)) {
             throw new Error(`Invalid fotang_id at row ${index + 2}: ${row.fotang_id}`);
         }
@@ -62,7 +58,6 @@ async function main() {
             throw new Error(`Invalid localityId at row ${index + 2}: ${row.localityId}`);
         }
 
-        // Validasi area sebagai enum Korwil
         const validKorwil = Object.values(Korwil).includes(row.area as Korwil);
         if (!validKorwil) {
             throw new Error(`Invalid area at row ${index + 2}: ${row.area}. Must be one of ${Object.values(Korwil).join(', ')}`);
@@ -82,7 +77,6 @@ async function main() {
         };
         });
 
-        // Upsert data ke database
         for (const fotang of fotangData) {
         await prisma.fotang.upsert({
             where: { fotang_id: fotang.fotang_id },

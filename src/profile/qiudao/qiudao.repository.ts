@@ -160,7 +160,6 @@ export const getQiudaosPaginated = async ({
 
   const filters: Prisma.QiuDaoWhereInput[] = [];
 
-  // 1. Basic search (search + searchField)
   search.forEach((s, i) => {
     const field = searchField[i] || "qiu_dao_mandarin_name";
     
@@ -186,7 +185,6 @@ export const getQiudaosPaginated = async ({
     }
   });
 
-  // === 2. MULTIPLE FILTERS (checkbox) ===
   if (location_name.length > 0) {
     filters.push({ qiu_dao_location: { location_name: { in: location_name } } });
   }
@@ -212,19 +210,17 @@ export const getQiudaosPaginated = async ({
     filters.push({ bao_shi_qd_mandarin_name: { in: bao_shi_qd_mandarin_name } });
   }
 
-  // === 3. SCOPE: self ===
   if (userId) {
     const ids = await prisma.user
       .findMany({ where: { user_info_id: userId }, select: { qiu_dao_id: true } })
-      .then(users => users.map(u => u.qiu_dao_id).filter((id): id is string => id !== null)); // ← ubah ke string
+      .then(users => users.map(u => u.qiu_dao_id).filter((id): id is string => id !== null));
     if (ids.length > 0) {
       filters.push({ qiu_dao_id: { in: ids } });
     } else {
-      filters.push({ qiu_dao_id: { equals: "" } }); // tidak akan match apa-apa
+      filters.push({ qiu_dao_id: { equals: "" } });
     }
   }
 
-  // === 4. FILTER BY AREA (Admin wilayah) ===
   if (userArea) {
     filters.push({ qiu_dao_location: { area: userArea } });
   }

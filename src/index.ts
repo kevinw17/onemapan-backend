@@ -32,12 +32,6 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Hapus middleware queryParsed
-// app.use((req: Request, res: Response, next: NextFunction) => {
-//   req.queryParsed = qs.parse(req.query as any);
-//   next();
-// });
-
 const uploadPath = path.resolve(__dirname, "../public/uploads");
 try {
   if (!fs.existsSync(uploadPath)) {

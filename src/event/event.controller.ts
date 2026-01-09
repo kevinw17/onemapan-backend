@@ -1,4 +1,3 @@
-// src/event/event.controller.ts
 import { Router, Request, Response } from "express";
 import {
   getEvents,
@@ -22,7 +21,7 @@ interface AuthRequest extends Request {
 
 const router = Router();
 
-const uploadPath = path.join(__dirname, "../../public/uploads"); // INI YANG BENAR!
+const uploadPath = path.join(__dirname, "../../public/uploads");
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -55,18 +54,15 @@ const upload = multer({
   },
 });
 
-// === GET ALL EVENTS ===
-// === GET ALL EVENTS — SEMUA ROLE BISA LIHAT SEMUA ===
 router.get("/", authenticateJWT, async (req: AuthRequest, res: Response) => {
   try {
     const events = await getEvents();
-    res.status(200).json(events); // ← HAPUS SEMUA FILTER WILAYAH
+    res.status(200).json(events);
   } catch (error: any) {
     res.status(error.statusCode || 500).json({ message: error.message });
   }
 });
 
-// === GET FILTERED EVENTS — SEMUA ROLE BISA LIHAT SEMUA ===
 router.get("/filtered", authenticateJWT, async (req: AuthRequest, res: Response) => {
   try {
     const {
@@ -92,7 +88,6 @@ router.get("/filtered", authenticateJWT, async (req: AuthRequest, res: Response)
       eventTypeParam = valid.length === 1 ? valid[0] : valid;
     }
 
-    // AREA TIDAK LAGI DIFILTER BERDASARKAN USER → semua bisa lihat semua
     let areaParam: Korwil | Korwil[] | undefined;
     if (area) {
       const areas = Array.isArray(area) ? area : (area as string).split(",");
@@ -141,7 +136,6 @@ router.get("/filtered", authenticateJWT, async (req: AuthRequest, res: Response)
   }
 });
 
-// === GET SINGLE EVENT ===
 router.get("/:eventId", authenticateJWT, async (req: AuthRequest, res: Response) => {
   try {
     const event = await getEvent(parseInt(req.params.eventId));
@@ -156,7 +150,6 @@ router.get("/:eventId", authenticateJWT, async (req: AuthRequest, res: Response)
   }
 });
 
-// === CREATE EVENT ===
 router.post("/", authenticateJWT, async (req: AuthRequest, res: Response) => {
   try {
     const {
@@ -223,20 +216,19 @@ router.post("/", authenticateJWT, async (req: AuthRequest, res: Response) => {
       })),
     });
 
-    res.status(201).json(event); // HAPUS return
+    res.status(201).json(event);
   } catch (error: any) {
     res.status(error.statusCode || 500).json({ message: error.message });
   }
 });
 
-// === UPDATE EVENT ===
 router.patch("/:id", authenticateJWT, async (req: AuthRequest, res: Response) => {
   try {
     const eventId = parseInt(req.params.id);
     const event = await getEvent(eventId);
     if (!event) {
       res.status(404).json({ message: "Event tidak ditemukan" });
-      return; // INI BOLEH
+      return;
     }
 
     const {
@@ -299,36 +291,34 @@ router.patch("/:id", authenticateJWT, async (req: AuthRequest, res: Response) =>
       eventLocationId: eventLocationId ? parseInt(eventLocationId) : undefined,
     });
 
-    res.status(200).json(updated); // HAPUS return
+    res.status(200).json(updated);
   } catch (error: any) {
     res.status(error.statusCode || 500).json({ message: error.message });
   }
 });
 
-// === DELETE EVENT ===
 router.delete("/:id", authenticateJWT, async (req: AuthRequest, res: Response) => {
   try {
     const eventId = parseInt(req.params.id);
     const event = await getEvent(eventId);
     if (!event) {
       res.status(404).json({ message: "Event tidak ditemukan" });
-      return; // INI BOLEH
+      return;
     }
 
     const eventArea = event.fotang?.area ?? event.eventLocation?.area ?? null;
     if (!isNationalAccessRole(req.user?.role) && eventArea !== null && eventArea !== req.user!.area) {
       res.status(403).json({ message: "Tidak boleh hapus event di luar wilayah Anda" });
-      return; // INI BOLEH
+      return;
     }
 
     await removeEvent(eventId);
-    res.status(200).json({ message: "Event dihapus" }); // HAPUS return
+    res.status(200).json({ message: "Event dihapus" });
   } catch (error: any) {
     res.status(error.statusCode || 500).json({ message: error.message });
   }
 });
 
-// event.controller.ts — GANTI TOTAL DENGAN INI
 router.post(
   "/upload-poster",
   authenticateJWT,

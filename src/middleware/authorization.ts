@@ -64,7 +64,6 @@ export const authorize = (required: PermissionCheck) => {
 
         userArea = user.qiudao?.qiu_dao_location?.area || req.user.area as Korwil | undefined;
 
-        // PERBAIKAN UTAMA: JANGAN TIMPA userScope!
         if (normalizedRole === "adminvihara") {
           req.userScope = "fotang";
         } else {
@@ -75,7 +74,6 @@ export const authorize = (required: PermissionCheck) => {
         req.userLocationId = user.domicile_location_id;
         req.userArea = userArea;
 
-        // INI YANG PALING PENTING: kasih tahu frontend bahwa ini admin!
         (req.user as any).isNotUserRole = true;
 
         next();

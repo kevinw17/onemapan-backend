@@ -92,7 +92,6 @@ export const loginUser = async ({ username, password }: LoginInput): Promise<Log
     };
   }
 
-  // Admin Vihara
   if (normalizedRole === "adminvihara") {
     permissions = {
       ...permissions,
@@ -100,7 +99,6 @@ export const loginUser = async ({ username, password }: LoginInput): Promise<Log
     };
   }
 
-  // Admin Wilayah
   if (normalizedRole === "admin") {
     permissions = {
       ...permissions,

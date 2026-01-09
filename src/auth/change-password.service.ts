@@ -1,5 +1,3 @@
-// src/auth/change-password.service.ts
-
 import bcrypt from "bcrypt";
 import prisma from "../db";
 

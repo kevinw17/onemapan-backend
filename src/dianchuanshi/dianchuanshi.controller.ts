@@ -1,4 +1,3 @@
-// src/dianchuanshi/dianchuanshi.controller.ts
 import { Router, Request, Response } from "express";
 import {
     getAllDianChuanShiService,

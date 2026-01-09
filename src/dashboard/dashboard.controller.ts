@@ -1,5 +1,3 @@
-// src/dashboard/dashboard.controller.ts
-
 import { Router, Request, Response } from "express";
 import { getDashboardStats } from "./dashboard.service";
 import { authenticateJWT } from "../middleware/authentication";
@@ -8,7 +6,7 @@ const router = Router();
 
 router.get(
     "/stats",
-    authenticateJWT, // hanya cek login
+    authenticateJWT,
     async (req: Request, res: Response) => {
         try {
         const stats = await getDashboardStats();

@@ -127,7 +127,6 @@ export const importUmatFromExcel = async (buffer: Buffer | ArrayBuffer) => {
     const umatSheet = workbook.getWorksheet("Umat");
     if (!umatSheet) throw new Error("Sheet 'Umat' tidak ditemukan");
 
-    // Baca header dengan aman
     const headerMap: Record<string, number> = {};
     const headerRow = umatSheet.getRow(1);
     const values = headerRow.values;
@@ -187,17 +186,14 @@ export const importUmatFromExcel = async (buffer: Buffer | ArrayBuffer) => {
             const isQingKouStr = safeString(getVal("Status Vegetarian"));
             const spiritualStatusStr = safeString(getVal("Status Rohani"));
 
-            // Validasi wajib
             if (!fullName || !genderStr || !dateOfBirthStr || (!qdName && !qdMandarinName)) {
                 skipCount++;
                 console.log(`Baris ${rowIndex}: Skip - data wajib kosong`);
                 continue;
             }
 
-            // Parse gender
             const gender = parseGender(genderStr);
 
-            // Parse tanggal lahir
             const dateOfBirth = new Date(String(dateOfBirthStr));
             if (isNaN(dateOfBirth.getTime())) {
                 skipCount++;
@@ -205,7 +201,6 @@ export const importUmatFromExcel = async (buffer: Buffer | ArrayBuffer) => {
                 continue;
             }
 
-            // Optional fields
             const bloodType = bloodTypeStr ? parseBloodType(bloodTypeStr) : null;
             const maritalStatus = maritalStatusStr ? parseMaritalStatus(maritalStatusStr) : null;
             const spiritualStatus = spiritualStatusStr ? parseSpiritualStatus(spiritualStatusStr) : null;
@@ -220,7 +215,6 @@ export const importUmatFromExcel = async (buffer: Buffer | ArrayBuffer) => {
                 }
             }
 
-            // Cari Qiudao
             let qiuDao = null;
             if (qdMandarinName) {
                 qiuDao = await prisma.qiuDao.findFirst({
@@ -245,7 +239,6 @@ export const importUmatFromExcel = async (buffer: Buffer | ArrayBuffer) => {
                 continue;
             }
 
-            // === DOMISILI ===
             const domStreet = safeString(getVal("Alamat Domisili"));
             const domKel = safeString(getVal("Desa / Kelurahan Domisili"));
             const domKec = safeString(getVal("Kecamatan Domisili"));
@@ -276,7 +269,6 @@ export const importUmatFromExcel = async (buffer: Buffer | ArrayBuffer) => {
                 });
             }
 
-            // === KTP ===
             const ktpStreet = safeString(getVal("Alamat Sesuai KTP"));
             const ktpKel = safeString(getVal("Desa / Kelurahan Sesuai KTP"));
             const ktpKec = safeString(getVal("Kecamatan Sesuai KTP"));
