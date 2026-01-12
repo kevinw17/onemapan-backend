@@ -64,6 +64,7 @@ export const loginUser = async ({ username, password }: LoginInput): Promise<Log
   let fotangId: number | null = null;
 
   if (userInfo.qiudao?.qiu_dao_location_id) {
+    area = userInfo.qiudao.qiu_dao_location.area;
     fotangId = userInfo.qiudao.qiu_dao_location_id;
   }
 
