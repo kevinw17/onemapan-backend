@@ -54,12 +54,13 @@ router.get("/users", (req: AuthRequest, res: Response) => {
                 return;
             }
 
-            const whereClause: any = {};
+            let whereClause: any = {};
 
-            if (req.user.role !== "Super_Admin" && req.user.area) {
+            const roleLower = (req.user.role || "").toLowerCase().trim().replace(/\s+/g, "");
+            if (!roleLower.includes("superadmin") && req.user.area) {
                 whereClause.qiudao = {
                     qiu_dao_location: {
-                        area: req.user.area as Korwil
+                    area: req.user.area as Korwil
                     }
                 };
             }
@@ -79,11 +80,12 @@ router.get("/users", (req: AuthRequest, res: Response) => {
                 }
             });
 
+            console.log("Jumlah user yang dikembalikan:", users.length);
+
             const usersWithCredentials = users
                 .filter(user => 
                     user.userCredential !== null && 
-                    user.userCredential.username !== null && 
-                    user.userCredential.username.trim() !== ""
+                    user.userCredential.username?.trim() !== ""
                 )
                 .map(user => ({
                     user_info_id: user.user_info_id,
@@ -95,6 +97,7 @@ router.get("/users", (req: AuthRequest, res: Response) => {
             res.status(200).json(usersWithCredentials);
             
         } catch (error: any) {
+            console.error("Error GET /users:", error);
             res.status(200).json([]);
         }
     })();
@@ -201,6 +204,9 @@ router.post("/", (req: AuthRequest, res: Response) => {
                 return;
             }
             const { name, description, permissions } = req.body;
+
+console.log("Mencoba buat role baru oleh:", req.user?.role, "dengan scope:", req.body.permissions);
+
             const role = await createNewRole(
                 { name, description, permissions },
                 req.user.role,
@@ -208,6 +214,7 @@ router.post("/", (req: AuthRequest, res: Response) => {
             );
             res.status(201).json({ id: role.role_id, message: "Peran berhasil dibuat" });
         } catch (error: any) {
+            console.error("Gagal buat role:", error.message);
             res.status(400).json({ message: error.message });
         }
     })();

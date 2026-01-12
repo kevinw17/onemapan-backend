@@ -76,13 +76,35 @@ const validatePermissions = (permissions: Permissions) => {
 };
 
 const validateAreaAccess = (userRole: string, userArea: string | null, permissions: Permissions) => {
-    if (userRole !== "Super_Admin" && userArea) {
+    const normalizedUserRole = userRole?.toLowerCase().trim().replace(/\s+/g, "");
+    
+    if (
+        normalizedUserRole === "superadmin" ||
+        normalizedUserRole === "ketualembaga" ||
+        normalizedUserRole === "sekjenlembaga"
+    ) {
+        console.log("User adalah Super/Ketua/Sekjen Admin → skip validasi area");
+        return;
+    }
+
+    if (userArea) {
         for (const module of Object.keys(permissions)) {
-            const mod = permissions[module];
-            if (mod && mod.scope !== "nasional" && mod.scope !== userArea) {
-                throw new Error(`Admin hanya dapat mengelola peran untuk wilayah ${userArea} atau nasional`);
+        const mod = permissions[module];
+        if (mod) {
+            if (mod.scope === "nasional") {
+                continue;
             }
+            if (mod.scope === "wilayah" && userArea.startsWith("Korwil_")) {
+                continue;
+            }
+            if (mod.scope === "fotang") {
+                continue;
+            }
+            throw new Error(`Admin hanya dapat membuat peran dengan scope "nasional" atau sesuai wilayah ${userArea}`);
         }
+        }
+    } else {
+        throw new Error("User tidak memiliki area yang ditugaskan");
     }
 };
 

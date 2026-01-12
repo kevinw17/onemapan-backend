@@ -109,6 +109,10 @@ export const updateUser = async (
     domicile_location,
   } = updateData;
 
+  const safeBloodType = typeof blood_type === 'string' && blood_type.trim() === ''
+    ? null
+    : blood_type;
+
   return await prisma.user.update({
     where: { user_info_id: id },
     data: {
@@ -117,7 +121,7 @@ export const updateUser = async (
       is_qing_kou,
       phone_number,
       gender,
-      blood_type,
+      blood_type: safeBloodType,
       place_of_birth,
       date_of_birth,
       id_card_number,
@@ -138,9 +142,16 @@ export const updateUserWithSpiritualStatus = async (
   newSpiritualStatus: SpiritualStatus
 ): Promise<User> => {
   return await prisma.$transaction(async (tx) => {
+    const safeBloodType = typeof updateData.blood_type === 'string' && updateData.blood_type.trim() === ''
+      ? null
+      : updateData.blood_type;
+
     const updatedUser = await tx.user.update({
       where: { user_info_id: id },
-      data: updateData,
+      data: {
+        ...updateData,
+        blood_type: safeBloodType,
+      },
     });
 
     await tx.spiritualUser.upsert({
