@@ -231,7 +231,7 @@ export const removeRoleFromUser = async (
 };
 
 export const getRolesByUserId = async (user_id: string): Promise<(UserRole & { role: Role })[]> => {
-    if (!user_id || typeof user_id !== "number") {
+    if (!user_id || typeof user_id !== "string") {
         throw new Error("ID user tidak valid");
     }
 

@@ -273,10 +273,10 @@ router.post("/assign", (req: AuthRequest, res: Response) => {
                 return;
             }
 
-            const userId = user_id;
+            const userId = String(user_id);
             const roleId = parseInt(String(role_id));
 
-            if (isNaN(userId) || isNaN(roleId)) {
+            if (isNaN(roleId)) {
                 res.status(400).json({ message: "ID harus berupa angka" });
                 return;
             }
@@ -341,10 +341,10 @@ router.delete("/remove", (req: AuthRequest, res: Response) => {
                 return;
             }
 
-            const parsedUserId = user_id;
+            const parsedUserId = String(user_id);
             const parsedRoleId = parseInt(String(role_id));
 
-            if (isNaN(parsedUserId) || isNaN(parsedRoleId)) {
+            if (isNaN(parsedRoleId)) {
                 res.status(400).json({ message: "ID harus berupa angka" });
                 return;
             }
