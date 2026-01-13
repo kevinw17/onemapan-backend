@@ -155,7 +155,7 @@ router.get(
         blood_type: bloodTypeArray,
         userArea,
         fotangId,
-        userId: req.userScope === "self" ? (String(req.user.user_info_id)) : undefined,
+        userId: req.query.userId ? String(req.query.userId) : (req.userScope === "self" ? String(req.user.user_info_id) : undefined),
       };
 
       const users = await fetchAllUsers(fetchOptions);
