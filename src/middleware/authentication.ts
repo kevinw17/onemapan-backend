@@ -9,6 +9,15 @@ export interface JwtPayload {
   role: string;
   scope: string;
   area: string | null;
+  permissions?: {
+    [feature: string]: {
+      scope?: string | string[];
+      create?: boolean;
+      read?: boolean;
+      update?: boolean;
+      delete?: boolean;
+    };
+  };
 }
 
 export interface ExtendedJwtPayload extends JwtPayload {

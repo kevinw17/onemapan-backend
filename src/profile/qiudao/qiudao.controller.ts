@@ -34,45 +34,39 @@ router.get(
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 10;
 
-      const rawSearch = req.query.search;
-      const rawSearchField = req.query.searchField;
+      const search = (req.query.search as string) || "";
+      const searchField = (req.query.searchField as string) || "qiu_dao_mandarin_name";
 
-      const search = Array.isArray(rawSearch)
-        ? (rawSearch[0] as string) || ""
-        : (rawSearch as string) || "";
+      const location_name = Array.isArray(req.query["location_name[]"]) ? req.query["location_name[]"].map(String) : req.query["location_name[]"] ? [String(req.query["location_name[]"])] : [];
+      const location_mandarin_name = Array.isArray(req.query["location_mandarin_name[]"]) ? req.query["location_mandarin_name[]"].map(String) : req.query["location_mandarin_name[]"] ? [String(req.query["location_mandarin_name[]"])] : [];
+      const dian_chuan_shi_name = Array.isArray(req.query["dian_chuan_shi_name[]"]) ? req.query["dian_chuan_shi_name[]"].map(String) : req.query["dian_chuan_shi_name[]"] ? [String(req.query["dian_chuan_shi_name[]"])] : [];
+      const dian_chuan_shi_mandarin_name = Array.isArray(req.query["dian_chuan_shi_mandarin_name[]"]) ? req.query["dian_chuan_shi_mandarin_name[]"].map(String) : req.query["dian_chuan_shi_mandarin_name[]"] ? [String(req.query["dian_chuan_shi_mandarin_name[]"])] : [];
 
-      const searchField = Array.isArray(rawSearchField)
-        ? (rawSearchField[0] as string) || "qiu_dao_mandarin_name"
-        : (rawSearchField as string) || "qiu_dao_mandarin_name";
+      const qiudaoPerm = req.user.permissions?.qiudao;
+      let effectiveScope = "nasional";
+      let effectiveArea: Korwil | undefined;
+      let effectiveFotangId: number | undefined;
 
-      const toArray = (param: any): string[] => {
-        if (!param) return [];
-        return Array.isArray(param) ? param.map(String) : [String(param)];
-      };
+      if (qiudaoPerm) {
+        const scopes = Array.isArray(qiudaoPerm.scope) ? qiudaoPerm.scope : [qiudaoPerm.scope || "nasional"];
+        const priorityMap: Record<string, number> = { self: 4, fotang: 3, wilayah: 2, nasional: 1 };
+        const sortedScopes = scopes.sort((a: string, b: string) => (priorityMap[b] || 0) - (priorityMap[a] || 0));
+        effectiveScope = sortedScopes[0] || "nasional";
 
-      const location_name = toArray(req.query["location_name[]"]);
-      const location_mandarin_name = toArray(req.query["location_mandarin_name[]"]);
-      const dian_chuan_shi_name = toArray(req.query["dian_chuan_shi_name[]"]);
-      const dian_chuan_shi_mandarin_name = toArray(req.query["dian_chuan_shi_mandarin_name[]"]);
-      const yin_shi_qd_name = toArray(req.query["yin_shi_qd_name[]"]);
-      const yin_shi_qd_mandarin_name = toArray(req.query["yin_shi_qd_mandarin_name[]"]);
-      const bao_shi_qd_name = toArray(req.query["bao_shi_qd_name[]"]);
-      const bao_shi_qd_mandarin_name = toArray(req.query["bao_shi_qd_mandarin_name[]"]);
-
-      let fotangId: number | undefined = undefined;
-
-      if (req.userScope === "fotang") {
-        const currentUser = await prisma.user.findUnique({
-          where: { user_info_id: String(req.user.user_info_id) },
-          select: { qiudao: { select: { qiu_dao_location_id: true } } },
-        });
-
-        fotangId = currentUser?.qiudao?.qiu_dao_location_id || undefined;
-
-        if (!fotangId) {
-          res.status(403).json({ message: "Admin Vihara tidak terhubung ke fotang" });
-          return;
+        if (effectiveScope === "wilayah") {
+          effectiveArea = req.userArea ?? undefined;
+        } else if (effectiveScope === "fotang") {
+          const currentUser = await prisma.user.findUnique({
+            where: { user_info_id: String(req.user.user_info_id) },
+            select: { qiudao: { select: { qiu_dao_location_id: true } } },
+          });
+          effectiveFotangId = currentUser?.qiudao?.qiu_dao_location_id ?? undefined;
         }
+      }
+
+      const queryScope = req.query.scope as string;
+      if (queryScope && ["self", "fotang", "wilayah", "nasional"].includes(queryScope)) {
+        effectiveScope = queryScope;
       }
 
       const fetchOptions = {
@@ -84,14 +78,12 @@ router.get(
         location_mandarin_name,
         dian_chuan_shi_name,
         dian_chuan_shi_mandarin_name,
-        yin_shi_qd_name,
-        yin_shi_qd_mandarin_name,
-        bao_shi_qd_name,
-        bao_shi_qd_mandarin_name,
-        userId: req.userScope === "self" ? (String(req.user.user_info_id)) : undefined,
-        userArea: req.userScope === "wilayah" ? req.userArea : undefined,
-        fotangId,
+        userId: effectiveScope === "self" ? String(req.user.user_info_id) : undefined,
+        userArea: effectiveScope === "wilayah" ? effectiveArea : undefined,
+        fotangId: effectiveScope === "fotang" ? effectiveFotangId : undefined,
       };
+
+      console.log("[FETCH QIUDAO] Effective Scope:", effectiveScope, "Options:", fetchOptions);
 
       const qiudaoList = await fetchAllQiudao(fetchOptions);
       res.status(200).json(qiudaoList);
