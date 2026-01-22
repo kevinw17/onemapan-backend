@@ -8,7 +8,7 @@ router.post("/", authenticateJWT, async (req: Request, res: Response) => {
     try {
         const userId = (req.user as any)?.user_info_id as string;
 
-        if (!userId || typeof userId !== "number") {
+        if (!userId || typeof userId !== "string") {
             res.status(401).json({ message: "Unauthorized: User tidak valid" });
             return;
         }
