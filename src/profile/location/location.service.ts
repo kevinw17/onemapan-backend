@@ -34,12 +34,6 @@ export const getDomicileLocation = async (
   return await getOrCreateLocation(data);
 };
 
-export const getQiudaoLocation = async (
-  data: LocationInput
-): Promise<Location> => {
-  return await getOrCreateLocation(data);
-};
-
 export const getAllLocations = async (): Promise<Location[]> => {
   return await findAllLocations();
 };

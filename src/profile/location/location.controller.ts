@@ -2,7 +2,6 @@ import { Router, Request, Response } from "express";
 import {
   getIdCardLocation,
   getDomicileLocation,
-  getQiudaoLocation,
   getAllLocations,
   getLocationById,
   updateLocationById,
@@ -30,15 +29,6 @@ router.post("/domicile", async (req: Request, res: Response) => {
   try {
     const location = await getDomicileLocation(req.body as LocationInput);
     res.status(201).json({ domicile_location_id: location.location_id });
-  } catch (error: any) {
-    res.status(500).send(error.message);
-  }
-});
-
-router.post("/qiudao", async (req: Request, res: Response) => {
-  try {
-    const location = await getQiudaoLocation(req.body as LocationInput);
-    res.status(201).json({ qiu_dao_location_id: location.location_id });
   } catch (error: any) {
     res.status(500).send(error.message);
   }
@@ -112,7 +102,7 @@ router.get("/locality/:id", async (req, res) => {
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
-  })
+  })();
 });
 
 router.get("/district/:id", async (req, res) => {
@@ -126,7 +116,7 @@ router.get("/district/:id", async (req, res) => {
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
-  })
+  })();
 });
 
 router.get("/city/:id", async (req, res) => {
@@ -140,7 +130,7 @@ router.get("/city/:id", async (req, res) => {
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
-  })
+  })();
 });
 
 router.get("/:id", async (req: Request, res: Response) => {
@@ -151,7 +141,7 @@ router.get("/:id", async (req: Request, res: Response) => {
     if (!location) return res.status(404).json({ message: "Lokasi tidak ditemukan" });
   
     res.status(200).json(location);
-  })
+  })();
 });
 
 router.patch("/:id", async (req, res) => {
