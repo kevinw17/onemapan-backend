@@ -319,6 +319,7 @@ router.delete("/:id", authenticateJWT, async (req: AuthRequest, res: Response) =
   }
 });
 
+// Not implemented yet
 router.post(
   "/upload-poster",
   authenticateJWT,
