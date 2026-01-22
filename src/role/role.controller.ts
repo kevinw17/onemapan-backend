@@ -245,6 +245,87 @@ router.put("/:id", (req: AuthRequest, res: Response) => {
     })();
 });
 
+router.delete("/remove", (req: AuthRequest, res: Response) => {
+    void (async () => {
+        try {
+            if (!req.user) {
+                res.status(401).json({ message: "User not authenticated" });
+                return;
+            }
+
+            const user_id = req.body.user_id;
+            const role_id = req.body.role_id;
+            
+            if (!user_id || !role_id) {
+                res.status(400).json({ message: "user_id dan role_id wajib diisi" });
+                return;
+            }
+
+            const parsedUserId = String(user_id);
+            const parsedRoleId = parseInt(String(role_id));
+
+            if (isNaN(parsedRoleId)) {
+                res.status(400).json({ message: "ID harus berupa angka" });
+                return;
+            }
+
+            const existingUserRole = await prisma.userRole.findUnique({
+                where: {
+                    user_id_role_id: {
+                        user_id: parsedUserId,
+                        role_id: parsedRoleId
+                    }
+                }
+            });
+
+            if (!existingUserRole) {
+                res.status(200).json({ 
+                    message: "Peran sudah tidak terhubung",
+                    data: { 
+                        user_id: parsedUserId, 
+                        role_id: parsedRoleId 
+                    }
+                });
+                return;
+            }
+
+            const deleted = await prisma.userRole.delete({
+                where: {
+                    user_id_role_id: {
+                        user_id: parsedUserId,
+                        role_id: parsedRoleId
+                    }
+                }
+            });
+
+            res.status(200).json({
+                message: "Peran berhasil dihapus dari user",
+                data: { 
+                    user_id: parsedUserId, 
+                    role_id: parsedRoleId 
+                }
+            });
+
+        } catch (error: any) {
+            
+            if (error.code === 'P2025') {
+                res.status(200).json({ 
+                    message: "Peran sudah tidak terhubung",
+                    data: { 
+                        user_id: parseInt(String(req.body.user_id)), 
+                        role_id: parseInt(String(req.body.role_id)) 
+                    }
+                });
+                return;
+            }
+
+            res.status(400).json({ 
+                message: error.message || "Gagal menghapus peran" 
+            });
+        }
+    })();
+});
+
 router.delete("/:id", (req: AuthRequest, res: Response) => {
     void (async () => {
         try {
@@ -327,87 +408,6 @@ router.post("/assign", (req: AuthRequest, res: Response) => {
 
             res.status(400).json({ 
                 message: error.message || "Gagal menetapkan peran" 
-            });
-        }
-    })();
-});
-
-router.delete("/remove", (req: AuthRequest, res: Response) => {
-    void (async () => {
-        try {
-            if (!req.user) {
-                res.status(401).json({ message: "User not authenticated" });
-                return;
-            }
-
-            const user_id = req.body.user_id;
-            const role_id = req.body.role_id;
-            
-            if (!user_id || !role_id) {
-                res.status(400).json({ message: "user_id dan role_id wajib diisi" });
-                return;
-            }
-
-            const parsedUserId = String(user_id);
-            const parsedRoleId = parseInt(String(role_id));
-
-            if (isNaN(parsedRoleId)) {
-                res.status(400).json({ message: "ID harus berupa angka" });
-                return;
-            }
-
-            const existingUserRole = await prisma.userRole.findUnique({
-                where: {
-                    user_id_role_id: {
-                        user_id: parsedUserId,
-                        role_id: parsedRoleId
-                    }
-                }
-            });
-
-            if (!existingUserRole) {
-                res.status(200).json({ 
-                    message: "Peran sudah tidak terhubung",
-                    data: { 
-                        user_id: parsedUserId, 
-                        role_id: parsedRoleId 
-                    }
-                });
-                return;
-            }
-
-            const deleted = await prisma.userRole.delete({
-                where: {
-                    user_id_role_id: {
-                        user_id: parsedUserId,
-                        role_id: parsedRoleId
-                    }
-                }
-            });
-
-            res.status(200).json({
-                message: "Peran berhasil dihapus dari user",
-                data: { 
-                    user_id: parsedUserId, 
-                    role_id: parsedRoleId 
-                }
-            });
-
-        } catch (error: any) {
-            
-            if (error.code === 'P2025') {
-                res.status(200).json({ 
-                    message: "Peran sudah tidak terhubung",
-                    data: { 
-                        user_id: parseInt(String(req.body.user_id)), 
-                        role_id: parseInt(String(req.body.role_id)) 
-                    }
-                });
-                return;
-            }
-
-            res.status(400).json({ 
-                message: error.message || "Gagal menghapus peran" 
             });
         }
     })();
