@@ -86,8 +86,6 @@ router.get("/:id", async (req, res) => {
 });
 
 router.post("/", async (req: Request, res: Response) => {
-    console.log("Payload diterima:", req.body);
-
     try {
         const newFotang = await createFotang(req.body as Prisma.FotangCreateInput);
         res.status(201).json(newFotang);

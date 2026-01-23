@@ -83,7 +83,6 @@ const validateAreaAccess = (userRole: string, userArea: string | null, permissio
         normalizedUserRole === "ketualembaga" ||
         normalizedUserRole === "sekjenlembaga"
     ) {
-        console.log("User adalah Super/Ketua/Sekjen Admin → skip validasi area");
         return;
     }
 

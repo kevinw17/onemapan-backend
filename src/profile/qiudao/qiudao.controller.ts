@@ -83,8 +83,6 @@ router.get(
         fotangId: effectiveScope === "fotang" ? effectiveFotangId : undefined,
       };
 
-      console.log("[FETCH QIUDAO] Effective Scope:", effectiveScope, "Options:", fetchOptions);
-
       const qiudaoList = await fetchAllQiudao(fetchOptions);
       res.status(200).json(qiudaoList);
     } catch (error: any) {

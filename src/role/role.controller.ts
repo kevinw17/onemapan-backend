@@ -80,8 +80,6 @@ router.get("/users", (req: AuthRequest, res: Response) => {
                 }
             });
 
-            console.log("Jumlah user yang dikembalikan:", users.length);
-
             const usersWithCredentials = users
                 .filter(user => 
                     user.userCredential !== null && 
@@ -204,8 +202,6 @@ router.post("/", (req: AuthRequest, res: Response) => {
                 return;
             }
             const { name, description, permissions } = req.body;
-
-console.log("Mencoba buat role baru oleh:", req.user?.role, "dengan scope:", req.body.permissions);
 
             const role = await createNewRole(
                 { name, description, permissions },

@@ -141,23 +141,6 @@ export const getQiudaosPaginated = async ({
   data: QiuDaoWithRelations[];
   total: number;
 }> => {
-  console.log("[getQiudaosPaginated] Input:", {
-    skip,
-    limit,
-    search,
-    searchField,
-    location_name,
-    location_mandarin_name,
-    dian_chuan_shi_name,
-    dian_chuan_shi_mandarin_name,
-    yin_shi_qd_name,
-    yin_shi_qd_mandarin_name,
-    bao_shi_qd_name,
-    bao_shi_qd_mandarin_name,
-    userId,
-    userArea,
-  });
-
   const filters: Prisma.QiuDaoWhereInput[] = [];
 
   search.forEach((s, i) => {
@@ -232,7 +215,6 @@ export const getQiudaosPaginated = async ({
   }
 
   const where = filters.length > 0 ? { AND: filters } : {};
-  console.log("[getQiudaosPaginated] WHERE:", JSON.stringify(where, null, 2));
 
   const [data, total] = await Promise.all([
     prisma.qiuDao.findMany({
@@ -259,6 +241,5 @@ export const getQiudaosPaginated = async ({
     prisma.qiuDao.count({ where }),
   ]);
 
-  console.log(`[getQiudaosPaginated] Result: ${data.length} items, total: ${total}`);
   return { data, total };
 };
