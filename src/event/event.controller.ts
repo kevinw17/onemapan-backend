@@ -104,15 +104,21 @@ router.get("/filtered", authenticateJWT, async (req: AuthRequest, res: Response)
       else throw { message: "is_recurring harus true atau false", statusCode: 400 };
     }
 
+    let categoryParam: EventCategory | EventCategory[] | undefined;
+    if (category && category !== "all") {
+      const categories = Array.isArray(category) ? category : (category as string).split(",");
+      const valid = categories.filter(c => Object.values(EventCategory).includes(c as EventCategory)) as EventCategory[];
+      if (valid.length === 0) throw { message: "category tidak valid", statusCode: 400 };
+      categoryParam = valid.length === 1 ? valid[0] : valid;
+    }
+
     const events = await getFilteredEvents({
       event_type: eventTypeParam,
       area: areaParam,
       is_recurring: isRecurringParam,
       startDate: startDate?.toString(),
       endDate: endDate?.toString(),
-      category: category
-        ? (Array.isArray(category) ? category : [category]).map(c => c as EventCategory)
-        : undefined,
+      category: categoryParam,
       province_id: province_id
         ? Array.isArray(province_id)
           ? province_id.map(String)
@@ -132,6 +138,7 @@ router.get("/filtered", authenticateJWT, async (req: AuthRequest, res: Response)
 
     res.status(200).json(events);
   } catch (error: any) {
+    console.error("Filtered events error:", error);
     res.status(error.statusCode || 500).json({ message: error.message });
   }
 });

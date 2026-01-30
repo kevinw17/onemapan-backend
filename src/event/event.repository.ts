@@ -154,18 +154,22 @@ export const getEventsFiltered = async ({
   }
 
   if (startDate || endDate) {
+    const start = startDate ? new Date(startDate) : undefined;
+    const end = endDate ? new Date(endDate) : undefined;
+
+    if (start && isNaN(start.getTime())) throw new Error("Invalid startDate format");
+    if (end && isNaN(end.getTime())) throw new Error("Invalid endDate format");
+
+    if (end) {
+      end.setHours(23, 59, 59, 999);
+    }
+
     where.occurrences = {
       some: {
         greg_occur_date: {
           ...(startDate && { gte: new Date(startDate) }),
           ...(endDate && { lte: new Date(endDate) }),
         },
-        ...(endDate && {
-          OR: [
-            { greg_end_date: { lte: new Date(endDate) } },
-            { greg_end_date: null },
-          ],
-        }),
       },
     };
   }

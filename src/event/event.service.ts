@@ -58,13 +58,33 @@ export const getFilteredEvents = async (input: FilterEventsInput): Promise<Event
     }
   }
 
+  let categoryParam: EventCategory | EventCategory[] | undefined;
+  if (category) {
+    if (typeof category === "string" && category.toLowerCase() === "all") {
+      categoryParam = undefined;
+    } else {
+      const categories = Array.isArray(category) ? category : [category];
+      const validCategories = categories.filter(c => 
+        typeof c === "string" && Object.values(EventCategory).includes(c as EventCategory)
+      ) as EventCategory[];
+
+      if (validCategories.length === 0) {
+        const err = new Error("category tidak valid");
+        (err as any).statusCode = 400;
+        throw err;
+      }
+
+      categoryParam = validCategories.length === 1 ? validCategories[0] : validCategories;
+    }
+  }
+
   return await getEventsFiltered({
     event_type,
     area,
     is_recurring,
     startDate,
     endDate,
-    category,
+    category: categoryParam,
     province_id,
     city_id,
     institution_id,
